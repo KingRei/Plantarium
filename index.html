@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>天象儀 · Celestial Simulator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A0E1C'/%3E%3Cellipse cx='32' cy='32' rx='21' ry='7.5' fill='none' stroke='%236FC3D6' stroke-width='2.4' transform='rotate(-18 32 32)'/%3E%3Ccircle cx='32' cy='32' r='11' fill='%23E3B34C'/%3E%3Ccircle cx='50' cy='14' r='2.2' fill='%23EDE7D8'/%3E%3Ccircle cx='13' cy='48' r='1.5' fill='%23EDE7D8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="celestial-simulator.css">
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>天象儀</b><span>CELESTIAL SIMULATOR</span></div>
+  <div class="ctl">
+    <label for="dt" id="uiTime">時刻</label>
+    <input type="datetime-local" id="dt" step="60">
+    <button id="nowBtn">現在</button>
+    <span id="lunarRead" style="color:var(--brass);font-size:11.5px;white-space:nowrap;">—</span>
+  </div>
+  <div class="ctl">
+    <button id="playBtn" class="primary">▶ 播放</button>
+    <label for="speed" id="uiSpeed">速度</label>
+    <select id="speed">
+      <option value="3600000">1 小時 / 秒</option>
+      <option value="7200000" selected>2 小時 / 秒</option>
+      <option value="21600000">6 小時 / 秒</option>
+      <option value="86400000">1 天 / 秒</option>
+      <option value="259200000">3 天 / 秒</option>
+      <option value="864000000">10 天 / 秒</option>
+      <option value="-86400000">◀ 倒轉 1 天 / 秒</option>
+    </select>
+  </div>
+  <div class="ctl">
+    <label for="lat" id="uiLat">緯度</label><input type="number" id="lat" value="25.03" step="0.5" min="-89.9" max="89.9">
+    <label for="lon" id="uiLon">經度</label><input type="number" id="lon" value="121.56" step="0.5" min="-180" max="180">
+  </div>
+  <div class="ctl"><button id="retroTableBtn">☍ 逆行時刻表</button></div>
+  <div class="ctl">
+    <select id="langSel"><option value="zh" selected>中文</option><option value="en">English</option></select>
+  </div>
+</header>
+
+<main>
+  <div class="pane" id="paneL">
+    <div class="chip" id="chipL">日心視角 · SOLAR SYSTEM</div>
+    <div class="zoomchip" id="eclipseChip" style="display:none;right:auto;left:12px;color:#FFB59F;border-color:rgba(255,138,107,.6);"></div>
+    <div class="overlay">
+      <div class="row"><input type="checkbox" id="tidalChk"><label for="tidalChk" id="uiTidal">月球潮汐力示意</label></div>
+      <div class="row"><input type="checkbox" id="phaseChk" checked><label for="phaseChk" id="uiPhase">月相與影錐</label></div>
+      <div class="row"><input type="checkbox" id="sphereChk" checked><label for="sphereChk" id="uiSphere">天球與星座</label></div>
+      <div class="row"><input type="checkbox" id="signChk"><label for="signChk" id="uiSign">十二宮區塊(隨歲差)</label></div>
+      <div class="row"><input type="checkbox" id="orbitChk" checked><label for="orbitChk" id="uiOrbit">軌道線</label></div>
+      <div class="row"><input type="checkbox" id="scaleChk"><label for="scaleChk" id="uiScale">正確比例(距離線性)</label></div>
+    </div>
+  </div>
+  <div class="pane" id="paneR">
+    <div class="chip" id="chipR">地平視角 · SKY VIEW</div>
+    <div class="overlay">
+      <div class="row">
+        <label for="retroSel" id="uiTrail">逆行軌跡</label>
+        <select id="retroSel">
+          <option value="0" selected>水星</option>
+          <option value="1">金星</option>
+          <option value="3">火星</option>
+          <option value="4">木星</option>
+          <option value="5">土星</option>
+          <option value="6">天王星</option>
+          <option value="7">海王星</option>
+          <option value="8">冥王星</option>
+        </select>
+        <input type="checkbox" id="trailChk" checked><label for="trailChk" id="uiShow">顯示</label>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="trackChk" checked><label for="trackChk" id="uiTrack">黃道軸置中</label>
+        <select id="trackSel">
+          <option value="east" selected>東・日出</option>
+          <option value="west">西・日沒</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="lockSel" id="uiLock">鎖定</label>
+        <select id="lockSel">
+          <option value="none" selected>無鎖定</option>
+          <option value="sun">太陽</option>
+          <option value="moon">月亮</option>
+        </select>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="constChk" checked><label for="constChk" id="uiConst">星座圖形</label>
+        <input type="checkbox" id="eclLineChk" checked><label for="eclLineChk" id="uiEclLine">黃道/白道線</label>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="bgStarChk"><label for="bgStarChk" id="uiBgStar">背景星空</label>
+        <input type="checkbox" id="dayChk" checked><label for="dayChk" id="uiDay">日夜背景變化</label>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="textChk" checked><label for="textChk" id="uiText">文字標籤</label>
+        <input type="checkbox" id="invChk" checked><label for="invChk" id="uiInv">反向拖曳</label>
+      </div>
+      <div id="retroStatus" class="pro">—</div>
+    </div>
+    <div class="zoomchip" id="zoomChip">視野 0.6×</div>
+  </div>
+</main>
+
+<footer>
+  <div><span id="uiFootTime">模擬時刻</span> <b id="timeReadout">—</b> · JD <b id="jdReadout">—</b> · <span id="uiFootLoc">觀測地</span> <b id="locReadout">25.03°N 121.56°E</b></div>
+  <div class="hint" id="uiHint">拖曳旋轉 · 滾輪/雙指縮放 · 逆行軌跡:實線=過去 虛線=未來</div>
+</footer>
+
+<div id="toasts"></div>
+
+<div id="modalBg">
+  <div id="modal">
+    <div class="mhead">
+      <h2 id="uiModalTitle">☍ 行星逆行時刻表</h2>
+      <div class="ynav">
+        <button id="yPrev">‹</button><b id="yLbl">2026</b><button id="yNext">›</button>
+        <button id="mClose">✕</button>
+      </div>
+    </div>
+    <div class="mbody"><table>
+      <thead><tr><th id="thP">行星</th><th id="thS">開始逆行</th><th id="thE">恢復順行</th><th id="thD">期間</th></tr></thead>
+      <tbody id="retroRows"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="celestial-simulator.js"></script>
+</body>
+</html>
