@@ -352,11 +352,11 @@ class OrbitDrag{
     },{passive:false});
     this.apply();
   }
-  move(f,rgt,dt){ /* 自由飛行:沿視線前後、左右平移(樞紐點跟著移動,
+  move(f,rgt,dt,boost){ /* 自由飛行:沿視線前後、左右平移(樞紐點跟著移動,
        縮放不再以太陽為中心);步幅與當前距離成正比,任何尺度皆順手 */
     const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
     const rv=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
-    const step=this.r*1.3*dt;
+    const step=this.r*1.3*dt*(boost||1);
     this.target.addScaledVector(fwd,f*step).addScaledVector(rv,rgt*step);
     this.apply();
   }
@@ -545,7 +545,7 @@ function applyScaleMode(){
   sunMesh.scale.setScalar(trueScale? (696000*kSize)/5 : 1); /* 真實比例太陽半徑 1.50 */
   moonF=trueScale? (1737.4*kSize)/0.55 : 1;
   moonMesh.scale.setScalar(moonF);
-  moonVisR=trueScale? 384400*kSize : 6.5;   /* 真實月距 0.83(60.3 地球半徑,絕不及金星) */
+  moonVisR=trueScale? 384400*kSize : 3.1;   /* 真實月距 0.83(60.3 地球半徑,絕不及金星) */
   /* 影錐:真實幾何長度(地影 ~138 萬 km、月影 ~37.4 萬 km 恰達地球) */
   const uLen=trueScale? (1380000*kSize)/UMBRA_LEN : 1;
   umbraCone.scale.set(earthF,uLen,earthF);
@@ -560,7 +560,7 @@ function applyScaleMode(){
   signBelt.scale.setScalar(sphereScale);
   markerPts.visible=trueScale;
   /* 相機範圍:可深潛至地月系、也可退到冥王星外 */
-  if(trueScale){ ctrlL.min=0.4; ctrlL.max=45000; ctrlL.r=2200; }
+  if(trueScale){ ctrlL.min=0.002; ctrlL.max=45000; ctrlL.r=2200; } /* 可縮放到月球(半徑 0.0038)特寫 */
   else{ ctrlL.min=CAM_REF*0.06; ctrlL.max=CAM_REF*2.2; ctrlL.r=CAM_REF; }
   ctrlL.apply();
   buildOrbits();
@@ -647,7 +647,7 @@ const moonLbl=mkLbl('L',()=>T('月球','Moon'),'#cfd2d8',4,false); moonLbl.posit
 const moonLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
   new THREE.LineDashedMaterial({color:0x8B93AD,dashSize:1.2,gapSize:1.2,transparent:true,opacity:0.6}));
 sceneL.add(moonLine);
-let moonVisR=6.5, umbraHalf=11.5/2, mShadHalf=1.8;
+let moonVisR=3.1, umbraHalf=11.5/2, mShadHalf=1.8; /* 月距 3.1:落在金星/火星軌道間隙內 */
 
 const tidalGroup=new THREE.Group(); sceneL.add(tidalGroup); tidalGroup.visible=false;
 const tidalArrows=[];
@@ -657,12 +657,12 @@ for(let k=0;k<12;k++){
 }
 let tidalBulge;
 {
-  const cur=new THREE.EllipseCurve(0,0,3.4,2.35,0,2*Math.PI);
+  const cur=new THREE.EllipseCurve(0,0,2.6,1.8,0,2*Math.PI);
   const pts=cur.getPoints(72).map(p=>new THREE.Vector3(p.x,0,p.y));
   tidalBulge=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
     new THREE.LineBasicMaterial({color:0x6FC3D6,transparent:true,opacity:0.9}));
   tidalGroup.add(tidalBulge);
-  const tl=mkLbl('L',()=>T('潮汐隆起(示意)','Tidal bulge'),'#6FC3D6',3.4,false); tl.position.set(0,4.6,0); tidalGroup.add(tl);
+  const tl=mkLbl('L',()=>T('潮汐隆起(示意)','Tidal bulge'),'#6FC3D6',3.4,false); tl.position.set(0,3.6,0); tidalGroup.add(tl);
 }
 
 /* 天球 */
@@ -812,6 +812,9 @@ let starsR, eclLineR, eqLineR, showEclLines=true;
   eqLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(eqp),
     new THREE.LineBasicMaterial({color:0x6FC3D6,transparent:true,opacity:0.28}));
   skyGroup.add(eqLineR);
+  window._eqLbl=mkLbl('R',()=>T('天球赤道','Celestial equator'),'#6FC3D6',3.6,false);
+  window._eqLbl.position.copy(eqUnit(100*DEG,0)).multiplyScalar(DOME*0.97);
+  skyGroup.add(window._eqLbl);
   const ecp=[];
   for(let k=0;k<=180;k++){
     const lam=k/180*2*Math.PI;
@@ -821,6 +824,10 @@ let starsR, eclLineR, eqLineR, showEclLines=true;
   eclLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(ecp),
     new THREE.LineBasicMaterial({color:0xE3B34C,transparent:true,opacity:0.5}));
   skyGroup.add(eclLineR);
+  window._eclLbl=mkLbl('R',()=>T('黃道','Ecliptic'),'#E3B34C',3.6,false);
+  {const e2=eclToEq({x:Math.cos(70*DEG),y:Math.sin(70*DEG),z:0});
+   window._eclLbl.position.set(e2.x,e2.y,e2.z).multiplyScalar(DOME*0.97);}
+  skyGroup.add(window._eclLbl);
   buildConstellations(constGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true);
   const pol=eqUnit(37.95*DEG,89.264*DEG).multiplyScalar(DOME*0.96);
   const star=makeGlow('rgba(255,255,255,1)','rgba(160,200,255,.5)',7); star.position.copy(pol);
@@ -1196,6 +1203,8 @@ document.getElementById('eclLineChk').addEventListener('change',e=>{
   showEclLines=e.target.checked;
   eclLineR.visible=showEclLines;
   eqLineR.visible=showEclLines;
+  window._eqLbl.visible=showEclLines;
+  window._eclLbl.visible=showEclLines;
   if(moonPathLine)moonPathLine.visible=showEclLines;
   moonPathLbl.visible=showEclLines;
 });
@@ -1252,14 +1261,18 @@ const camFwdR=new THREE.Vector3(), tmpVR=new THREE.Vector3();
 const camRgt=new THREE.Vector3(), camUpv=new THREE.Vector3();
 const mhatV=new THREE.Vector3(), qV=new THREE.Vector3();
 
-let lastReal=performance.now(), uiTick=0;
+let lastReal=performance.now(), uiTick=0, flyHeld=0;
 function animate(now){
   requestAnimationFrame(animate);
   const dt=Math.min(0.1,(now-lastReal)/1000); lastReal=now;
   if(playing){ simMs+=(+speedSel.value)*dt; }
   if(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d){
-    ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt);
-  }
+    flyHeld+=dt;
+    const boost=1+Math.min(6,flyHeld*2.2); /* 長按持續加速,最多 7 倍 */
+    ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt,boost);
+  }else flyHeld=0;
+  const nearL=Math.min(0.1,Math.max(0.0008,ctrlL.r*0.02));
+  if(Math.abs(camL.near-nearL)>nearL*0.2){ camL.near=nearL; camL.updateProjectionMatrix(); }
 
   const T2=centuries(simMs);
   const psi=psiDeg(simMs)*DEG;
@@ -1318,7 +1331,7 @@ function animate(now){
       const p=u.clone().multiplyScalar(Math.cos(th)).addScaledVector(wv,Math.sin(th));
       const acc=u.clone().multiplyScalar(3*Math.cos(th)).sub(p).normalize();
       const mag=Math.sqrt(1+3*Math.cos(th)*Math.cos(th));
-      tidalArrows[k].position.copy(p).multiplyScalar(3.0);
+      tidalArrows[k].position.copy(p).multiplyScalar(2.2);
       tidalArrows[k].setDirection(acc);
       tidalArrows[k].setLength(1.4+1.5*mag/2,0.9,0.5);
     }
