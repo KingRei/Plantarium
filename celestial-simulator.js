@@ -509,14 +509,23 @@ for(let i=0;i<ELEM.length;i++){
     new THREE.MeshStandardMaterial({color:p.color,roughness:0.7,metalness:0.05}));
   const lbl=mkLbl('L',()=>pname(i),'#'+p.color.toString(16).padStart(6,'0'),6,i===EARTH_IDX);
   lbl.position.set(0,p.size+4.5,0); m.add(lbl);
-  /* 環系:木星(暗淡)、土星(顯著)、天王星(近垂直,自轉軸傾 98°)、海王星(稀薄) */
-  const RINGS={4:[1.35,1.65,0xb8a98c,0.18,0.05],5:[1.35,2.10,0xcbb27e,0.70,0.466],
-               6:[1.45,1.85,0xa8ccd6,0.38,1.707],7:[1.55,2.20,0x8ea6cc,0.20,0.494]};
-  if(RINGS[i]){
-    const [ri,ro,col,op,tilt]=RINGS[i];
-    const ring=new THREE.Mesh(new THREE.RingGeometry(p.size*ri,p.size*ro,48),
-      new THREE.MeshBasicMaterial({color:col,side:THREE.DoubleSide,transparent:true,opacity:op}));
-    ring.rotation.x=Math.PI/2-tilt; m.add(ring);
+  /* 環系(多環帶擬真;半徑單位=行星半徑倍數,傾角=各行星赤道面):
+     木星=暈環+主環(稀薄);土星=C/B 環、卡西尼縫、A/F 環;
+     天王星=數道窄環與最亮的 ε 環(近垂直);海王星=Galle/LeVerrier/Adams */
+  const RING_BANDS={
+   4:[[1.55,1.70,0x9a8f7c,0.10],[1.72,1.81,0xb8a98c,0.22]],
+   5:[[1.24,1.52,0x8a7a5e,0.22],[1.53,1.94,0xd8c294,0.85],[2.03,2.26,0xcdb684,0.55],[2.30,2.34,0xb59f6e,0.28]],
+   6:[[1.60,1.63,0x9fc4ce,0.30],[1.72,1.74,0x9fc4ce,0.32],[1.86,1.88,0xa8ccd6,0.35],[1.99,2.05,0xc2e2ea,0.60]],
+   7:[[1.68,1.78,0x77879c,0.10],[2.14,2.17,0x8ea6cc,0.20],[2.50,2.55,0x9db4d8,0.30]]
+  };
+  const RING_TILT={4:0.05,5:0.466,6:1.707,7:0.494};
+  if(RING_BANDS[i]){
+    const rg=new THREE.Group(); rg.rotation.x=Math.PI/2-RING_TILT[i];
+    for(const [ri,ro,col,op] of RING_BANDS[i]){
+      rg.add(new THREE.Mesh(new THREE.RingGeometry(p.size*ri,p.size*ro,64),
+        new THREE.MeshBasicMaterial({color:col,side:THREE.DoubleSide,transparent:true,opacity:op,depthWrite:false})));
+    }
+    m.add(rg);
   }
   sceneL.add(m); planetMeshes.push(m);
 }
@@ -575,6 +584,32 @@ function applyScaleMode(){
   buildOrbits();
 }
 
+/* 主要衛星:伽利略四衛(木)、泰坦與瑞亞(土)、崔頓(海,逆行)。
+   軌道半徑經壓縮以利辨識(實際為 6~26 個行星半徑),週期與方向真實。 */
+const SAT_DEFS={
+ 4:[[1.9,1.769,0xE8D08A,0.20],[2.4,3.551,0xF0EDE6,0.17],[3.0,7.155,0xBDB6A8,0.26],[3.9,16.689,0x8F8578,0.24]],
+ 5:[[3.4,15.945,0xE0B36A,0.26],[2.4,4.518,0xCFCFD6,0.15]],
+ 6:[[2.3,2.520,0xC8D2DA,0.14],[2.9,8.706,0xD8DEE6,0.18],[3.5,13.463,0xB9C2CE,0.17]],
+ 7:[[2.6,-5.877,0xBFE0E8,0.22]]
+};
+const SAT_TILT={4:0.05,5:0.466,6:1.707,7:0.494};
+const satMoons=[];
+for(const pi in SAT_DEFS){
+  const i=+pi, host=planetMeshes[i], base=ELEM[i].size;
+  const grp=new THREE.Group();
+  grp.rotation.x=Math.PI/2-SAT_TILT[i]; /* 與環同面(行星赤道面) */
+  host.add(grp);
+  for(const [rr,per,col,sz] of SAT_DEFS[i]){
+    const R=base*rr;
+    const m=new THREE.Mesh(new THREE.SphereGeometry(sz,10,8),
+      new THREE.MeshStandardMaterial({color:col,roughness:0.8}));
+    grp.add(m);
+    const op=[]; for(let k=0;k<=48;k++){const a=k/48*2*Math.PI;op.push(new THREE.Vector3(Math.cos(a)*R,Math.sin(a)*R,0));}
+    grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(op),
+      new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.22})));
+    satMoons.push({mesh:m,R,per});
+  }
+}
 const earthMesh=planetMeshes[EARTH_IDX];
 const earthSpin=new THREE.Group();
 earthMesh.add(earthSpin);
@@ -633,7 +668,7 @@ earthSpin.add(earthGlobe);
   const merPts=[]; for(let k=0;k<=32;k++){const a=-Math.PI/2+k/32*Math.PI;merPts.push(new THREE.Vector3(Math.cos(a)*1.55,Math.sin(a)*1.55,0));}
   earthSpin.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(merPts),
     new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.85})));
-  window._obsDot=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,8),new THREE.MeshBasicMaterial({color:0xff5a4d}));
+  window._obsDot=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8),new THREE.MeshBasicMaterial({color:0xff5a4d}));
   window._obsDot.position.set(1.55,0,0); earthSpin.add(window._obsDot);
 }
 
@@ -777,7 +812,7 @@ signBelt.visible=false; /* 預設關閉 */
    5. 右視窗:地平視角
    ══════════════════════════════════════════════════════════ */
 const paneR=document.getElementById('paneR');
-const rendR=new THREE.WebGLRenderer({antialias:true});
+const rendR=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); /* 殘影管線需保留繪圖緩衝 */
 rendR.setPixelRatio(Math.min(devicePixelRatio,2));
 paneR.appendChild(rendR.domElement);
 const sceneR=new THREE.Scene();
@@ -1139,6 +1174,7 @@ const UI_STR={
   uiTrack:['軸置中','Axis lock'],
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
+  uiTrailFx:['運動殘影(星軌)','Motion trails (star arcs)'],
   homeBtn:['⌂ 回到原點','⌂ Reset view'],
   uiObserve:['觀察','Observe'],
   uiLock:['鎖定','Lock'],
@@ -1241,6 +1277,39 @@ document.getElementById('scaleChk').addEventListener('change',e=>{
 });
 document.getElementById('constChk').addEventListener('change',e=>constGroupR.visible=e.target.checked);
 document.getElementById('bgStarChk').addEventListener('change',e=>starsR.visible=e.target.checked);
+/* 運動殘影選項:僅速度 ≥1 天/秒時顯示;開啟時強制並鎖定
+   日夜背景=關、參考線=關、文字標籤=關、隱藏地平線=開(避免文字殘影) */
+const trailFxChk=document.getElementById('trailFxChk');
+const trailFxRow=document.getElementById('trailFxRow');
+const dayChkEl=document.getElementById('dayChk');
+const eclLineChkEl=document.getElementById('eclLineChk');
+const textChkEl=document.getElementById('textChk');
+const hideHorChkEl=document.getElementById('hideHorChk');
+function setChk(el,v){ if(el.checked!==v){ el.checked=v; el.dispatchEvent(new Event('change')); } }
+function toggleTrailFx(on){
+  trailFxOn=on;
+  const locked=[dayChkEl,eclLineChkEl,textChkEl,hideHorChkEl];
+  if(on){
+    trailFxSaved={day:dayChkEl.checked,ecl:eclLineChkEl.checked,text:textChkEl.checked,hor:hideHorChkEl.checked};
+    setChk(dayChkEl,false); setChk(eclLineChkEl,false); setChk(textChkEl,false); setChk(hideHorChkEl,true);
+    locked.forEach(el=>el.disabled=true);
+  }else{
+    locked.forEach(el=>el.disabled=false);
+    if(trailFxSaved){
+      setChk(dayChkEl,trailFxSaved.day); setChk(eclLineChkEl,trailFxSaved.ecl);
+      setChk(textChkEl,trailFxSaved.text); setChk(hideHorChkEl,trailFxSaved.hor);
+      trailFxSaved=null;
+    }
+    needTrailClear=true;
+  }
+}
+trailFxChk.addEventListener('change',e=>toggleTrailFx(e.target.checked));
+function updateTrailFxRow(){
+  const hs=Math.abs(+speedSel.value)>=86400000;
+  trailFxRow.style.display=hs?'':'none';
+  if(!hs&&trailFxOn){ trailFxChk.checked=false; toggleTrailFx(false); }
+}
+speedSel.addEventListener('change',updateTrailFxRow);
 document.getElementById('hideHorChk').addEventListener('change',e=>{
   hideHorizon=e.target.checked;
   horizonGroup.visible=!hideHorizon;
@@ -1298,7 +1367,16 @@ const lunarRead=document.getElementById('lunarRead');
 let lunarCd=NaN;
 const skyMat4=new THREE.Matrix4();
 const bgNight=new THREE.Color(0x060912), bgDay=new THREE.Color(0x2E4E86);
-sceneR.background=bgNight.clone();
+const bgCur=new THREE.Color(0x060912);
+sceneR.background=bgCur;
+/* 運動殘影(高速播放):以半透明底色淡出前幀取代清屏,
+   周日旋轉在畫面上化為連續的「長曝星軌」——快而平滑,而非頻閃 */
+const fadeScene=new THREE.Scene();
+const fadeCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const fadeMat=new THREE.MeshBasicMaterial({color:0x060912,transparent:true,opacity:0.3,depthTest:false,depthWrite:false});
+fadeScene.add(new THREE.Mesh(new THREE.PlaneBufferGeometry(2,2),fadeMat));
+let trailsPrev=false, needTrailClear=true;
+let trailFxOn=false, trailFxSaved=null;
 const sunWorld=new THREE.Vector3(), moonWorld=new THREE.Vector3();
 const camFwdR=new THREE.Vector3(), tmpVR=new THREE.Vector3();
 const camRgt=new THREE.Vector3(), camUpv=new THREE.Vector3();
@@ -1335,6 +1413,14 @@ function animate(now){
   poleMark.position.copy(axisW).multiplyScalar(SPHERE_R*0.98);
   signBelt.rotation.y=-psi;
   earthSpin.rotation.y=gmstDeg(simMs)*DEG;
+  /* 衛星公轉(週期與順/逆行方向真實) */
+  {
+    const dNow=days(simMs);
+    for(const sm of satMoons){
+      const a=2*Math.PI*(dNow/sm.per);
+      sm.mesh.position.set(Math.cos(a)*sm.R,Math.sin(a)*sm.R,0);
+    }
+  }
   if(trueScale){
     const arr=markerPts.geometry.attributes.position.array;
     for(let i=0;i<ELEM.length;i++){arr[i*3]=heliosW[i].x;arr[i*3+1]=heliosW[i].y;arr[i*3+2]=heliosW[i].z;}
@@ -1524,7 +1610,7 @@ function animate(now){
     }
   }
   const dayF=dayNight? Math.max(0,Math.min(1,(sunAlt+0.05)*4)) : 0;
-  sceneR.background.copy(bgNight).lerp(bgDay,dayF);
+  bgCur.copy(bgNight).lerp(bgDay,dayF);
   starsR.material.opacity=0.85*(1-dayF*0.92);
   /* 依視角補償(焦距比)+ 邊緣反補償:抵銷超廣角時直線透視在
      畫面外圈的放大(cos^1.6,留一點放大感但不誇張) */
@@ -1575,7 +1661,24 @@ function animate(now){
   }
 
   rendL.render(sceneL,camL);
-  rendR.render(sceneR,camR);
+  /* 右視窗:高速時走殘影管線,否則正常清屏渲染 */
+  const trailsActive = playing && trailFxOn && Math.abs(+speedSel.value)>=86400000;
+  if(trailsActive!==trailsPrev){ trailsPrev=trailsActive; needTrailClear=true; }
+  if(trailsActive){
+    sceneR.background=null;
+    const spd=Math.abs(+speedSel.value)/86400000;
+    fadeMat.color.copy(bgCur);
+    fadeMat.opacity=Math.max(0.10, 0.40/spd); /* 越快殘影越長 */
+    rendR.autoClearColor=false;
+    if(needTrailClear){ rendR.setClearColor(bgCur,1); rendR.clear(true,true,false); needTrailClear=false; }
+    rendR.render(fadeScene,fadeCam);
+    rendR.clearDepth();
+    rendR.render(sceneR,camR);
+  }else{
+    rendR.autoClearColor=true;
+    sceneR.background=bgCur;
+    rendR.render(sceneR,camR);
+  }
 }
 
 function resize(){
@@ -1640,6 +1743,7 @@ document.querySelectorAll('#flyPad button').forEach(b=>{
     if(tag.classList.contains('show'))setTimeout(disarm,3000); else disarm();
   });
 }
+window.addEventListener('resize',()=>{needTrailClear=true;});
 window.addEventListener('resize',resize);
 /* 點擊視角標籤展開/收合選項面板;小螢幕預設收合以免遮擋畫面 */
 document.getElementById('chipL').addEventListener('click',()=>paneL.classList.toggle('panelHidden'));
@@ -1648,4 +1752,5 @@ if(window.innerWidth<=860||window.innerHeight<=520){paneL.classList.add('panelHi
 resize(); setTimeout(resize,50);
 rebuildTrail(simMs);
 updateLoc();
+updateTrailFxRow();
 requestAnimationFrame(animate);
