@@ -1,4 +1,4 @@
-/* 天象儀 Celestial Simulator — application (requires three.js r128 loaded first) */
+/* 天象儀 StarGZR — application (requires three.js r128 loaded first) */
 'use strict';
 /* ══════════════════════════════════════════════════════════
    1. 天文計算引擎(J2000 近似克卜勒根數 + 低精度月球)
@@ -578,8 +578,7 @@ function applyScaleMode(){
   if(trueScale){ ctrlL.min=0.002; ctrlL.max=45000; }
   else{ ctrlL.min=CAM_REF*0.06; ctrlL.max=CAM_REF*2.2; camStateN.tx=0;camStateN.ty=0;camStateN.tz=0; }
   loadCam(trueScale? camStateT : camStateN);
-  document.getElementById('flyPad').style.display=trueScale?'grid':'none';
-  document.getElementById('flyExtra').style.display=trueScale?'flex':'none';
+  document.getElementById('flyDock').style.display=trueScale?'flex':'none';
   observeIdx='none';
   document.getElementById('obsSel').value='none';
   buildOrbits();
@@ -1014,23 +1013,45 @@ const OBS_POLE={ /* 自轉極(黃道座標) */
   titan:(()=>{const e=eqUnit(40.589*DEG,83.537*DEG);return eqToEclP({x:e.x,y:e.y,z:e.z});})()
 };
 const OBS_SPIN={moon:27.321661, mars:1.02595675, titan:15.945}; /* 自轉週期(日);泰坦潮汐鎖定 */
+/* 手機端 option.hidden 不可靠(iOS/Android picker 仍會列出),
+   故以「實際從 DOM 移除/插回」來控制選項存在與否 */
+function setOptPresent(sel, value, present, buildFn){
+  let o=[...sel.options].find(x=>x.value===value);
+  if(present){
+    if(!o){ o=buildFn(); sel.appendChild(o); }
+  }else if(o){
+    if(sel.value===value)sel.value='none';
+    o.remove();
+  }
+  return o;
+}
 function syncObserverUI(){
   /* 逆行軌跡是地球視角的現象(視逆行=地球超車幾何),其他觀察地整欄隱藏 */
   document.getElementById('retroRow').style.display=(viewBody==='earth')?'':'none';
   const tv=showTrail&&viewBody==='earth';
   if(trailPast){ trailPast.visible=trailFuture.visible=tv; trailMarks.forEach(m=>m.visible=tv); }
-  /* 泰坦:顯示鎖定土星選項 */
-  {const so=[...lockSelEl.options].find(o=>o.value==='sat');
-   so.hidden=(viewBody!=='titan');
-   if(so.hidden&&lockSelEl.value==='sat')lockSelEl.value='none';}
-  /* 鎖定選單:月球上「月亮」→「地球」;火星/泰坦上移除(月球緊貼地球無獨立意義) */
-  const mo=[...lockSelEl.options].find(o=>o.value==='moon');
-  mo.textContent=(viewBody==='moon')? T('地球','Earth') : T('月亮','Moon');
-  mo.hidden=(viewBody==='mars'||viewBody==='titan');
-  if(mo.hidden&&lockSelEl.value==='moon'){ lockSelEl.value='none'; }
-  /* 白道軸置中僅地球觀察地有意義(其他觀察地上月球軌道面不構成天空參考線) */
-  [...trackSelEl.options].forEach(o=>{ if(o.value.startsWith('lun'))o.hidden=(viewBody!=='earth'); });
-  if(trackSelEl.value.startsWith('lun')&&viewBody!=='earth'){ trackSelEl.value='off'; }
+  /* 鎖定・月亮/地球:地球觀察地=「月亮」,月球觀察地=「地球」;火星/泰坦移除 */
+  setOptPresent(lockSelEl,'moon', viewBody==='earth'||viewBody==='moon', ()=>{
+    const o=document.createElement('option'); o.value='moon'; return o;
+  });
+  {const mo=[...lockSelEl.options].find(x=>x.value==='moon');
+   if(mo)mo.textContent=(viewBody==='moon')? T('地球','Earth') : T('月亮','Moon');}
+  /* 鎖定・土星:僅泰坦 */
+  setOptPresent(lockSelEl,'sat', viewBody==='titan', ()=>{
+    const o=document.createElement('option'); o.value='sat'; o.textContent=T('土星','Saturn'); return o;
+  });
+  /* 白道軸置中:僅地球(其他觀察地上月球軌道面不構成天空參考線) */
+  const lunPresent=viewBody==='earth';
+  if(lunPresent){
+    if(![...trackSelEl.options].some(o=>o.value==='lun_e')){
+      const oe=document.createElement('option'); oe.value='lun_e'; oe.textContent=TRACK_STR[3][lang==='zh'?0:1];
+      const ow=document.createElement('option'); ow.value='lun_w'; ow.textContent=TRACK_STR[4][lang==='zh'?0:1];
+      trackSelEl.appendChild(oe); trackSelEl.appendChild(ow); /* ecl_w 之後即末端,順序正確 */
+    }
+  }else{
+    if(trackSelEl.value.startsWith('lun'))trackSelEl.value='off';
+    [...trackSelEl.options].filter(o=>o.value.startsWith('lun')).forEach(o=>o.remove());
+  }
   applyTrack();
   updateObsDotParent();
   updateLoc();
@@ -1306,7 +1327,8 @@ function applyLang(){
   const sp=document.getElementById('speed');
   [...sp.options].forEach((o,i)=>o.textContent=SPEED_STR[i][k]);
   const ts=document.getElementById('trackSel');
-  [...ts.options].forEach((o,i)=>o.textContent=TRACK_STR[i][k]);
+  const TRACK_BY_VAL={off:0,ecl_e:1,ecl_w:2,lun_e:3,lun_w:4};
+  [...ts.options].forEach(o=>{const idx=TRACK_BY_VAL[o.value]; if(idx!=null)o.textContent=TRACK_STR[idx][k];});
   [...obsSel.options].forEach(o=>{
     if(o.value==='none')o.textContent='—';
     else if(o.value==='sun')o.textContent=T('太陽','Sun');
