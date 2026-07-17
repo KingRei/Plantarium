@@ -826,14 +826,16 @@ const skyGroup=new THREE.Group(); skyGroup.matrixAutoUpdate=false; sceneR.add(sk
 const starFrameR=new THREE.Group(); skyGroup.add(starFrameR); /* 恆星層:隨歲差旋轉 */
 const constGroupR=new THREE.Group(); starFrameR.add(constGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
-let starsR, eclLineR, eqLineR, showEclLines=true;
+let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
 {
   const eqp=[]; for(let k=0;k<=128;k++){const a=k/128*2*Math.PI;eqp.push(eqUnit(a,0).multiplyScalar(DOME*0.97));}
   eqLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(eqp),
     new THREE.LineBasicMaterial({color:0x6FC3D6,transparent:true,opacity:0.28}));
+  eqLineR.visible=false;
   skyGroup.add(eqLineR);
   window._eqLbl=mkLbl('R',()=>T('天球赤道','Celestial equator'),'#6FC3D6',3.6,false);
   window._eqLbl.position.copy(eqUnit(100*DEG,0)).multiplyScalar(DOME*0.97);
+  window._eqLbl.visible=false;
   skyGroup.add(window._eqLbl);
   const ecp=[];
   for(let k=0;k<=180;k++){
@@ -843,10 +845,12 @@ let starsR, eclLineR, eqLineR, showEclLines=true;
   }
   eclLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(ecp),
     new THREE.LineBasicMaterial({color:0xE3B34C,transparent:true,opacity:0.5}));
+  eclLineR.visible=false;
   skyGroup.add(eclLineR);
   window._eclLbl=mkLbl('R',()=>T('黃道','Ecliptic'),'#E3B34C',3.6,false);
   {const e2=eclToEq({x:Math.cos(70*DEG),y:Math.sin(70*DEG),z:0});
    window._eclLbl.position.set(e2.x,e2.y,e2.z).multiplyScalar(DOME*0.97);}
+  window._eclLbl.visible=false;
   skyGroup.add(window._eclLbl);
   buildConstellations(constGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true);
   const pol=eqUnit(37.95*DEG,89.264*DEG).multiplyScalar(DOME*0.96);
@@ -860,7 +864,7 @@ let starsR, eclLineR, eqLineR, showEclLines=true;
   const sg=new THREE.BufferGeometry();
   sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
   starsR=new THREE.Points(sg,new THREE.PointsMaterial({color:0xbcc7e6,size:1.3,sizeAttenuation:false,transparent:true,opacity:0.8}));
-  starsR.visible=false; /* 背景星空預設關閉 */
+  starsR.visible=true; /* 背景星空預設開啟 */
   starFrameR.add(starsR);
 }
 
@@ -922,6 +926,7 @@ for(let i=0;i<ELEM.length;i++){
 /* 白道:月球軌道面在天球上的路徑(對黃道傾約 5.1°,交點 18.6 年退行一圈) */
 let moonPathLine=null, moonPathEpoch=NaN;
 const moonPathLbl=mkLbl('R',()=>T('白道','Lunar orbit'),'#c9cfdd',3.6,false);
+moonPathLbl.visible=false;
 skyGroup.add(moonPathLbl);
 function buildMoonPath(ms){
   if(moonPathLine){skyGroup.remove(moonPathLine);moonPathLine.geometry.dispose();moonPathLine.material.dispose();}
@@ -1131,7 +1136,7 @@ const UI_STR={
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],
   uiConst:['星座圖形','Constellation figures'],
   uiBgStar:['背景星空','Background stars'],
-  uiTrack:['黃道軸置中','Ecliptic axis lock'],
+  uiTrack:['軸置中','Axis lock'],
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
   homeBtn:['⌂ 回到原點','⌂ Reset view'],
@@ -1139,7 +1144,7 @@ const UI_STR={
   uiLock:['鎖定','Lock'],
   uiDay:['日夜背景變化','Day–night background'],
   uiText:['文字標籤','Text labels'],
-  uiEclLine:['黃道/白道/赤道線','Ecliptic / lunar / equator lines'],
+  uiEclLine:['黃道/白道/天球赤道線','Ecliptic / lunar / equator lines'],
   uiPhase:['月相與影錐','Moon phase & shadows'],
   uiScale:['正確比例(距離線性)','True scale (linear distances)'],
   uiFootTime:['模擬時刻','Sim time'], uiFootLoc:['觀測地','Observer'],
@@ -1148,7 +1153,8 @@ const UI_STR={
   uiModalTitle:['☍ 行星逆行時刻表','☍ Planetary Retrogrades'],
   thP:['行星','Planet'], thS:['開始逆行','Starts'], thE:['恢復順行','Ends'], thD:['期間','Duration']
 };
-const TRACK_STR=[['東・日出','East · Sunrise'],['西・日沒','West · Sunset']];
+const TRACK_STR=[['無置中','No axis'],['黃道軸・日出','Ecliptic · Sunrise'],['黃道軸・日沒','Ecliptic · Sunset'],
+  ['白道軸・月出','Lunar orbit · Moonrise'],['白道軸・月沒','Lunar orbit · Moonset']];
 const LOCK_STR=[['無鎖定','No lock'],['太陽','Sun'],['月亮','Moon']];
 const SPEED_STR=[
   ['1 小時 / 秒','1 hr / s'],['2 小時 / 秒','2 hr / s'],['6 小時 / 秒','6 hr / s'],
@@ -1261,18 +1267,15 @@ const CONST_CENTROIDS={};
     ls0.appendChild(o);
   }
 }
-const trackChkEl=document.getElementById('trackChk');
 const trackSelEl=document.getElementById('trackSel');
 const lockSelEl=document.getElementById('lockSel');
 function applyTrack(){
-  /* 黃道軸置中與鎖定可並用:鎖定+置中=目標居中且黃道保持縱向 */
-  trackSelEl.disabled=!trackChkEl.checked;
-  trackMode=trackChkEl.checked? trackSelEl.value : 'off';
+  /* 軸置中(黃道/白道 × 東/西)與鎖定可並用 */
+  trackMode=trackSelEl.value;
   lockMode=lockSelEl.value;
   if(trackMode==='off'&&lockMode==='none'){ camR.up.set(0,1,0); ctrlR.syncFromCamera(); }
 }
 applyTrack();
-trackChkEl.addEventListener('change',applyTrack);
 trackSelEl.addEventListener('change',applyTrack);
 lockSelEl.addEventListener('change',applyTrack);
 document.getElementById('invChk').addEventListener('change',e=>invDrag=e.target.checked);
@@ -1392,8 +1395,18 @@ function animate(now){
   }
 
   /* ── 右 ── */
+  /* 抖動根因:1 天/秒以上播放時,周日旋轉(360°/日)每幀跳 6°~60°,
+     時間取樣嚴重混疊;鎖定/置中把它放大成畫面滾轉的頻閃。
+     解法:高速且鎖定/置中時,右視窗逐「日」取樣——凍結周日旋轉,
+     乾淨呈現逐日漂移(太陽沿黃道換季、月球沿白道 13°/日、逆行圈)。 */
+  let msR=simMs;
+  if(playing&&(lockMode!=='none'||trackMode!=='off')&&Math.abs(+speedSel.value)>=86400000){
+    msR=Math.round(simMs/86400000)*86400000;
+  }
+  const TR=centuries(msR), psiR=psiDeg(msR)*DEG;
+  const mgR=moonGeo(TR);
   const phi=(+latIn.value||0)*DEG;
-  const lst=wrap360(gmstDeg(simMs)+(+lonIn.value||0))*DEG;
+  const lst=wrap360(gmstDeg(msR)+(+lonIn.value||0))*DEG;
   const sL=Math.sin(lst),cL=Math.cos(lst),sP=Math.sin(phi),cP=Math.cos(phi);
   skyMat4.set(
     -sL,     cL,     0,   0,
@@ -1401,15 +1414,15 @@ function animate(now){
     cL*sP,   sL*sP, -cP,  0,
     0,0,0,1);
   skyGroup.matrix.copy(skyMat4);
-  starFrameR.quaternion.setFromAxisAngle(ECL_POLE_EQ, psi);
+  starFrameR.quaternion.setFromAxisAngle(ECL_POLE_EQ, psiR);
 
   let sunAlt=-1;
   for(const b of skyBodies){
     let g;
-    if(b.key==='sun')g=geoEcl('sun',T2);
-    else if(b.key==='moon')g=moonGeo(T2);
-    else g=geoEcl(b.key,T2);
-    const e=eclToEq(rotEclZ(g,psi));
+    if(b.key==='sun')g=geoEcl('sun',TR);
+    else if(b.key==='moon')g=mgR;
+    else g=geoEcl(b.key,TR);
+    const e=eclToEq(rotEclZ(g,psiR));
     const v=new THREE.Vector3(e.x,e.y,e.z).normalize().multiplyScalar(DOME*0.9);
     b.grp.position.copy(v);
     v.applyMatrix4(skyMat4);
@@ -1421,7 +1434,7 @@ function animate(now){
   }
   /* 月相更新與亮面朝向 */
   {
-    const el=Math.abs(wrap180(mg.lon - geoLon('sun',T2)));
+    const el=Math.abs(wrap180(mgR.lon - geoLon('sun',TR)));
     const bk=Math.round(el/2);
     if(bk!==phaseBucket){
       phaseBucket=bk;
@@ -1432,6 +1445,17 @@ function animate(now){
     }
   }
   sunDirLight.position.copy(sunWorld); /* 行星光影朝向太陽 */
+  /* 置中滾轉軸:依選項取黃道北極或白道(月球軌道面)法向 */
+  const axisPoleW=()=>{
+    if(trackMode.startsWith('lun')){
+      const m2g=moonGeo(TR+3/36525);
+      const nEcl=new THREE.Vector3(mgR.x,mgR.y,mgR.z)
+        .cross(new THREE.Vector3(m2g.x,m2g.y,m2g.z)).normalize();
+      const ne=eclToEq(rotEclZ({x:nEcl.x,y:nEcl.y,z:nEcl.z},psiR));
+      return new THREE.Vector3(ne.x,ne.y,ne.z).applyMatrix4(skyMat4);
+    }
+    return ECL_POLE_EQ.clone().applyMatrix4(skyMat4);
+  };
   if(lockMode!=='none'){
     let tgt;
     if(lockMode==='sun')tgt=sunWorld;
@@ -1444,20 +1468,8 @@ function animate(now){
       /* 以相機位置為原點瞄準天體世界座標:目標嚴格位於畫面正中央 */
       const aim=(tgt===tmpVR? tmpVR : tmpVR.copy(tgt)).sub(camR.position).normalize();
       if(trackMode!=='off'){
-        /* 鎖定 + 置中:目標居中並滾轉保持軌道面縱向。
-           鎖定月亮時自動改用白道軸(月球軌道面法向),
-           月球貼死中線,不再因 ±5° 黃緯左右織擺 */
-        let poleW;
-        if(lockMode==='moon'){
-          const m2g=moonGeo(centuries(simMs+3*86400000));
-          const nEcl=new THREE.Vector3(mg.x,mg.y,mg.z)
-            .cross(new THREE.Vector3(m2g.x,m2g.y,m2g.z)).normalize();
-          const ne=eclToEq(rotEclZ({x:nEcl.x,y:nEcl.y,z:nEcl.z},psi));
-          poleW=new THREE.Vector3(ne.x,ne.y,ne.z).applyMatrix4(skyMat4);
-        }else{
-          poleW=ECL_POLE_EQ.clone().applyMatrix4(skyMat4);
-        }
-        const up=new THREE.Vector3().crossVectors(poleW,aim);
+        /* 鎖定 + 置中:目標居中,滾轉使所選軌道面(黃道或白道)保持畫面縱向 */
+        const up=new THREE.Vector3().crossVectors(axisPoleW(),aim);
         if(up.lengthSq()>1e-8){
           camR.up.copy(up.normalize());
           camR.lookAt(camR.position.x+aim.x, camR.position.y+aim.y, camR.position.z+aim.z);
@@ -1471,15 +1483,15 @@ function animate(now){
       }
     }
   }else if(trackMode!=='off'){
-    /* 黃道軸置中:視線沿黃道從地平線交點往上偏移 trackOffset(垂直拖曳調整),
-       相機滾轉使黃道在畫面中央呈筆直縱線;太陽與行星都串在這條線上 */
-    const nW=ECL_POLE_EQ.clone().applyMatrix4(skyMat4);
+    /* 軸置中(無鎖定):視線沿所選軌道面自地平交點往上偏 trackOffset(垂直拖曳調整) */
+    const nW=axisPoleW();
     let d=new THREE.Vector3(-nW.z,0,nW.x);
     if(d.lengthSq()>1e-6){
       d.normalize();
-      if(trackMode==='east'? d.x<0 : d.x>0) d.negate();
+      const east=trackMode.endsWith('_e');
+      if(east? d.x<0 : d.x>0) d.negate();
       const tRaw=new THREE.Vector3().crossVectors(nW,d).normalize();
-      const sgn=tRaw.y>=0? 1 : -1;                       /* 升起側 */
+      const sgn=tRaw.y>=0? 1 : -1;
       const co=Math.cos(trackOffset), si=Math.sin(trackOffset);
       const aim=d.clone().multiplyScalar(co).addScaledVector(tRaw,sgn*si);
       const up =d.clone().multiplyScalar(-si).addScaledVector(tRaw,sgn*co);
