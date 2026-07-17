@@ -327,7 +327,11 @@ function attachPinch(el, onPinch, onDrag){
     if(pts.size===2){
       const a=[...pts.values()];
       const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      if(lastDist>0) onPinch(d/lastDist);
+      if(lastDist>0){
+        const f=d/lastDist;
+        /* 死區 + 阻尼:過濾觸控微顫,避免鎖定模式下畫面忽大忽小 */
+        if(Math.abs(f-1)>0.004) onPinch(Math.pow(f,0.85));
+      }
       lastDist=d;
     }else if(pts.size===1){
       onDrag(dx,dy);
@@ -649,8 +653,20 @@ const mShadowCone=new THREE.Mesh(new THREE.ConeGeometry(0.55,3.6,20,1,true),
   new THREE.MeshBasicMaterial({color:0x1c2030,transparent:true,opacity:0.32,side:THREE.DoubleSide,depthWrite:false}));
 sceneL.add(mShadowCone);
 const moonLbl=mkLbl('L',()=>T('月球','Moon'),'#cfd2d8',4,false); moonLbl.position.set(0,2.2,0); moonMesh.add(moonLbl);
-const moonLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
-  new THREE.LineDashedMaterial({color:0x8B93AD,dashSize:1.2,gapSize:1.2,transparent:true,opacity:0.6}));
+function makeSeg(mat){ /* 預配置 2 點線段,之後就地更新(不重建緩衝) */
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(6),3));
+  g.setAttribute('lineDistance',new THREE.Float32BufferAttribute(new Float32Array(2),1));
+  return new THREE.Line(g,mat);
+}
+function updateSeg(line,a,b){
+  const ap=line.geometry.attributes.position;
+  ap.setXYZ(0,a.x,a.y,a.z); ap.setXYZ(1,b.x,b.y,b.z); ap.needsUpdate=true;
+  const ld=line.geometry.attributes.lineDistance;
+  ld.setX(0,0); ld.setX(1,a.distanceTo(b)); ld.needsUpdate=true;
+  line.geometry.computeBoundingSphere();
+}
+const moonLine=makeSeg(new THREE.LineDashedMaterial({color:0x8B93AD,dashSize:1.2,gapSize:1.2,transparent:true,opacity:0.6}));
 sceneL.add(moonLine);
 let moonVisR=3.1, umbraHalf=11.5/2, mShadHalf=1.8; /* 月距 3.1:落在金星/火星軌道間隙內 */
 
@@ -687,8 +703,7 @@ let axisLine, poleMark;
   const star=makeGlow('rgba(255,255,255,1)','rgba(160,200,255,.5)',10); star.position.copy(pol);
   sphereGroup.add(star); regGlowL(star);
   const pl=mkLbl('L',()=>T('北極星 Polaris','Polaris'),'#ffffff',7,true); pl.position.copy(pol).multiplyScalar(1.05); sphereGroup.add(pl);
-  axisLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
-    new THREE.LineDashedMaterial({color:0xE3B34C,dashSize:3,gapSize:3,transparent:true,opacity:0.5}));
+  axisLine=makeSeg(new THREE.LineDashedMaterial({color:0xE3B34C,dashSize:3,gapSize:3,transparent:true,opacity:0.5}));
   sphereGroup.add(axisLine);
   /* 歲差圈 */
   const pc=[]; for(let k=0;k<=96;k++){
@@ -898,6 +913,7 @@ moonSprite.scale.set(4.6,4.6,1);
 moonBody.grp.add(moonSprite);
 moonBody.mat=moonSprite.material; /* 沿用地平線下調暗邏輯 */
 let phaseBucket=-1;
+const phaseTexCache=new Map(); /* 月相貼圖快取:重播時零配置、零上傳 */
 for(let i=0;i<ELEM.length;i++){
   if(i===EARTH_IDX)continue;
   addSkyBody(i,()=>pname(i),'#'+ELEM[i].color.toString(16).padStart(6,'0'),1.1,null,false);
@@ -908,12 +924,13 @@ let moonPathLine=null, moonPathEpoch=NaN;
 const moonPathLbl=mkLbl('R',()=>T('白道','Lunar orbit'),'#c9cfdd',3.6,false);
 skyGroup.add(moonPathLbl);
 function buildMoonPath(ms){
-  if(moonPathLine){skyGroup.remove(moonPathLine);moonPathLine.geometry.dispose();}
+  if(moonPathLine){skyGroup.remove(moonPathLine);moonPathLine.geometry.dispose();moonPathLine.material.dispose();}
   const psi0=psiDeg(ms)*DEG, pts=[];
   for(let k=0;k<=88;k++){
     const t=ms+((k/88)-0.5)*27.55*86400000; /* 近一個近點月 */
     const g=eclToEq(rotEclZ(moonGeo(centuries(t)),psi0));
-    pts.push(new THREE.Vector3(g.x,g.y,g.z).normalize().multiplyScalar(DOME*0.92));
+    const v=new THREE.Vector3(g.x,g.y,g.z).normalize().multiplyScalar(DOME*0.92);
+    if(isFinite(v.x+v.y+v.z))pts.push(v); /* NaN 防護 */
   }
   moonPathLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
     new THREE.LineDashedMaterial({color:0xc9cfdd,dashSize:1.1,gapSize:1.3,transparent:true,opacity:0.42}));
@@ -929,7 +946,7 @@ let trailPast=null, trailFuture=null, trailMarks=[];
 let trailEpoch=NaN, trailPlanet=0;
 const TRAIL_WIN={0:70,1:150,3:220,4:280,5:300,6:330,7:330,8:360};
 function rebuildTrail(ms){
-  [trailPast,trailFuture,...trailMarks].forEach(o=>{if(o){skyGroup.remove(o);o.geometry.dispose();}});
+  [trailPast,trailFuture,...trailMarks].forEach(o=>{if(o){skyGroup.remove(o);o.geometry.dispose();o.material.dispose();}});
   trailMarks=[];
   const W=TRAIL_WIN[trailPlanet], step=W/110;
   const psi0=psiDeg(ms)*DEG;
@@ -938,7 +955,7 @@ function rebuildTrail(ms){
     const T2=centuries(ms+dd*86400000);
     const g=eclToEq(rotEclZ(geoEcl(trailPlanet,T2),psi0));
     const v=new THREE.Vector3(g.x,g.y,g.z).normalize().multiplyScalar(DOME*0.9);
-    (dd<=0?past:future).push(v);
+    if(isFinite(v.x+v.y+v.z))(dd<=0?past:future).push(v); /* NaN 防護 */
   }
   if(past.length) future.unshift(past[past.length-1].clone());
   const col=ELEM[trailPlanet].color;
@@ -1349,10 +1366,8 @@ function animate(now){
     mShadowCone.position.copy(moonMesh.position).addScaledVector(mn,mShadHalf);
     mShadowCone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),mn);
   }
-  moonLine.geometry.setFromPoints([ew,moonMesh.position]);
-  moonLine.computeLineDistances();
-  axisLine.geometry.setFromPoints([ew.clone().divideScalar(sphereScale), axisW.clone().multiplyScalar(SPHERE_R*0.98)]);
-  axisLine.computeLineDistances();
+  updateSeg(moonLine,ew,moonMesh.position);
+  updateSeg(axisLine,ew.clone().divideScalar(sphereScale), axisW.clone().multiplyScalar(SPHERE_R*0.98));
   if(tidalGroup.visible){
     tidalGroup.position.copy(ew);
     const u=mdir.clone(); u.y=0; u.normalize();
@@ -1410,10 +1425,10 @@ function animate(now){
     const bk=Math.round(el/2);
     if(bk!==phaseBucket){
       phaseBucket=bk;
-      const old=moonSprite.material.map;
-      moonSprite.material.map=drawPhase(el);
+      let tex=phaseTexCache.get(bk);
+      if(!tex){ tex=drawPhase(el); phaseTexCache.set(bk,tex); }
+      moonSprite.material.map=tex;
       moonSprite.material.needsUpdate=true;
-      if(old)old.dispose();
     }
   }
   sunDirLight.position.copy(sunWorld); /* 行星光影朝向太陽 */
@@ -1429,10 +1444,20 @@ function animate(now){
       /* 以相機位置為原點瞄準天體世界座標:目標嚴格位於畫面正中央 */
       const aim=(tgt===tmpVR? tmpVR : tmpVR.copy(tgt)).sub(camR.position).normalize();
       if(trackMode!=='off'){
-        /* 鎖定 + 黃道軸置中:目標居中,滾轉使黃道方向保持畫面縱向
-           (up = 黃道經度增加方向,固定號向以確保晝夜連續不跳轉) */
-        const nW=ECL_POLE_EQ.clone().applyMatrix4(skyMat4);
-        const up=new THREE.Vector3().crossVectors(nW,aim);
+        /* 鎖定 + 置中:目標居中並滾轉保持軌道面縱向。
+           鎖定月亮時自動改用白道軸(月球軌道面法向),
+           月球貼死中線,不再因 ±5° 黃緯左右織擺 */
+        let poleW;
+        if(lockMode==='moon'){
+          const m2g=moonGeo(centuries(simMs+3*86400000));
+          const nEcl=new THREE.Vector3(mg.x,mg.y,mg.z)
+            .cross(new THREE.Vector3(m2g.x,m2g.y,m2g.z)).normalize();
+          const ne=eclToEq(rotEclZ({x:nEcl.x,y:nEcl.y,z:nEcl.z},psi));
+          poleW=new THREE.Vector3(ne.x,ne.y,ne.z).applyMatrix4(skyMat4);
+        }else{
+          poleW=ECL_POLE_EQ.clone().applyMatrix4(skyMat4);
+        }
+        const up=new THREE.Vector3().crossVectors(poleW,aim);
         if(up.lengthSq()>1e-8){
           camR.up.copy(up.normalize());
           camR.lookAt(camR.position.x+aim.x, camR.position.y+aim.y, camR.position.z+aim.z);
