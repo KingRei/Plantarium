@@ -977,14 +977,30 @@ for(let i=0;i<ELEM.length;i++){
   addSkyBody(i,()=>pname(i),'#'+ELEM[i].color.toString(16).padStart(6,'0'),1.1,null,false);
 }
 addSkyBody(EARTH_IDX,()=>T('地球','Earth'),'#5B8FD9',1.6,['rgba(160,200,255,.9)','rgba(90,140,220,.35)',7],true); /* 從其他觀察地可見 */
-/* 土星在天空中的環(從泰坦看會隨土星視尺寸放大而壯觀呈現) */
+/* 土星在天空中的環系:與日心視角同款多環帶(C/B/卡西尼縫/A/F),
+   依土星真實自轉極定向——從泰坦看去隨視尺寸放大成壯觀的帶環巨球 */
 {
   const sb=skyBodies.find(b=>b.key===5);
-  const rk=new THREE.Mesh(new THREE.RingGeometry(sb.dotR*1.35,sb.dotR*2.25,48),
-    new THREE.MeshBasicMaterial({color:0xd8c294,side:THREE.DoubleSide,transparent:true,opacity:0.5,depthWrite:false}));
+  const SKYBANDS=[[1.24,1.52,0x8a7a5e,0.30],[1.53,1.94,0xd8c294,0.9],[2.03,2.26,0xcdb684,0.6],[2.30,2.34,0xb59f6e,0.3]];
+  const rg2=new THREE.Group();
+  for(const [ri,ro,col,op] of SKYBANDS){
+    rg2.add(new THREE.Mesh(new THREE.RingGeometry(sb.dotR*ri,sb.dotR*ro,48),
+      new THREE.MeshBasicMaterial({color:col,side:THREE.DoubleSide,transparent:true,opacity:op,depthWrite:false})));
+  }
   const sp2=eqUnit(40.589*DEG,83.537*DEG); /* 土星自轉極(赤道座標) */
-  rk.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(sp2.x,sp2.y,sp2.z));
-  sb.dot.add(rk);
+  rg2.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(sp2.x,sp2.y,sp2.z));
+  sb.dot.add(rg2);
+}
+/* 月球(或火星/泰坦)天空中的地球:程序化貼圖球,依 GMST 自轉,
+   受光材質呈現真實晝夜明暗界線 */
+{
+  const eb=skyBodies.find(b=>b.key===EARTH_IDX);
+  eb.dot.material=new THREE.MeshStandardMaterial({map:makeEarthTexture(),roughness:0.85,metalness:0,transparent:true});
+  eb.mat=eb.dot.material;
+  const axg=new THREE.Group();
+  axg.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)); /* 地軸=赤道座標北極 */
+  eb.grp.add(axg); axg.add(eb.dot);
+  window._earthSkySpin=eb.dot;
 }
 /* 觀察地:地平視角的觀測者所在天體 */
 let viewBody='earth';
@@ -1454,6 +1470,13 @@ const lunarRead=document.getElementById('lunarRead');
 let lunarCd=NaN;
 const skyMat4=new THREE.Matrix4();
 const bgNight=new THREE.Color(0x060912), bgDay=new THREE.Color(0x2E4E86);
+/* 各觀察地天空色(依大氣物理):
+   月球=無大氣 → 白天天空依然全黑(僅地表被照亮);
+   火星=稀薄 CO₂ + 塵埃 → 白晝呈奶油棕(butterscotch),夜近黑;
+   泰坦=1.45 atm 濃厚 N₂/CH₄ + 光化學霾(tholins)→ 永恆的昏暗橙光,
+        白晝亮度僅地球的千分之一,如深沉暮色 */
+const BG_DAY={earth:bgDay, moon:new THREE.Color(0x050608), mars:new THREE.Color(0xB06A38), titan:new THREE.Color(0x8A4E1C)};
+const BG_NIGHT={earth:bgNight, moon:new THREE.Color(0x050608), mars:new THREE.Color(0x150A0B), titan:new THREE.Color(0x1E1006)};
 const bgCur=new THREE.Color(0x060912);
 sceneR.background=bgCur;
 /* 運動殘影(高速播放):以半透明底色淡出前幀取代清屏,
@@ -1500,6 +1523,7 @@ function animate(now){
   poleMark.position.copy(axisW).multiplyScalar(SPHERE_R*0.98);
   signBelt.rotation.y=-psi;
   earthSpin.rotation.y=gmstDeg(simMs)*DEG;
+  if(window._earthSkySpin)window._earthSkySpin.rotation.y=gmstDeg(simMs)*DEG;
   /* 衛星公轉(週期與順/逆行方向真實) */
   {
     const dNow=days(simMs);
@@ -1675,8 +1699,9 @@ function animate(now){
     }
     v.applyMatrix4(skyMat4);
     const below=!hideHorizon && v.y<0;
-    b.mat.opacity=below?0.22:1;
-    b.lbl.material.opacity=below?0.28:1;
+    const opBase=(viewBody==='titan')?0.82:1; /* 泰坦霾層:整體略降 */
+    b.mat.opacity=below?0.22:opBase;
+    b.lbl.material.opacity=below?0.28:opBase;
     if(b.key==='sun'){ sunAlt=v.y/(DOME*0.9); sunWorld.copy(v); }
     if(b.key==='moon'){ moonWorld.copy(v); }
     if(b.key===EARTH_IDX){ earthWorld.copy(v); }
@@ -1750,8 +1775,10 @@ function animate(now){
       camR.lookAt(camR.position.x+aim.x, camR.position.y+aim.y, camR.position.z+aim.z);
     }
   }
-  const dayF=dayNight? Math.max(0,Math.min(1,(sunAlt+0.05)*4)) : 0;
-  bgCur.copy(bgNight).lerp(bgDay,dayF);
+  let dayF=dayNight? Math.max(0,Math.min(1,(sunAlt+0.05)*4)) : 0;
+  if(viewBody==='moon')dayF=0;      /* 無大氣無散射:白天天空仍黑 */
+  if(viewBody==='titan')dayF*=0.9;  /* 濃霾吸收:白晝僅昏暗橙光 */
+  bgCur.copy(BG_NIGHT[viewBody]).lerp(BG_DAY[viewBody],dayF);
   starsR.material.opacity=0.85*(1-dayF*0.92);
   /* 依視角補償(焦距比)+ 邊緣反補償:抵銷超廣角時直線透視在
      畫面外圈的放大(cos^1.6,留一點放大感但不誇張) */
