@@ -1015,6 +1015,14 @@ const OBS_POLE={ /* 自轉極(黃道座標) */
 };
 const OBS_SPIN={moon:27.321661, mars:1.02595675, titan:15.945}; /* 自轉週期(日);泰坦潮汐鎖定 */
 function syncObserverUI(){
+  /* 逆行軌跡是地球視角的現象(視逆行=地球超車幾何),其他觀察地整欄隱藏 */
+  document.getElementById('retroRow').style.display=(viewBody==='earth')?'':'none';
+  const tv=showTrail&&viewBody==='earth';
+  if(trailPast){ trailPast.visible=trailFuture.visible=tv; trailMarks.forEach(m=>m.visible=tv); }
+  /* 泰坦:顯示鎖定土星選項 */
+  {const so=[...lockSelEl.options].find(o=>o.value==='sat');
+   so.hidden=(viewBody!=='titan');
+   if(so.hidden&&lockSelEl.value==='sat')lockSelEl.value='none';}
   /* 鎖定選單:月球上「月亮」→「地球」;火星/泰坦上移除(月球緊貼地球無獨立意義) */
   const mo=[...lockSelEl.options].find(o=>o.value==='moon');
   mo.textContent=(viewBody==='moon')? T('地球','Earth') : T('月亮','Moon');
@@ -1164,6 +1172,7 @@ function updateEclipse(){
 }
 function fmtDate(ms){const d=new Date(ms);return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;}
 function checkRetroFlips(){
+  if(viewBody!=='earth')return; /* 逆行為地球視角現象 */
   for(let i=0;i<ELEM.length;i++){
     if(i===EARTH_IDX)continue;
     const r=retroRate(i,simMs)<0;
@@ -1283,7 +1292,8 @@ const TRACK_STR=[['無置中','No axis'],['黃道軸・日出','Ecliptic · Sunr
 const LOCK_STR=[['無鎖定','No lock'],['太陽','Sun'],['月亮','Moon']];
 const VIEWBODY_STR=[['地球','Earth'],['月球','Moon'],['火星','Mars'],['泰坦','Titan']];
 const SPEED_STR=[
-  ['1 小時 / 秒','1 hr / s'],['2 小時 / 秒','2 hr / s'],['6 小時 / 秒','6 hr / s'],
+  ['1 小時 / 秒','1 hr / s'],['2 小時 / 秒','2 hr / s'],
+  ['3 小時 / 秒','3 hr / s'],['6 小時 / 秒','6 hr / s'],
   ['1 天 / 秒','1 day / s'],['3 天 / 秒','3 days / s'],['10 天 / 秒','10 days / s'],
   ['◀ 倒轉 1 天 / 秒','◀ Reverse 1 day / s']
 ];
@@ -1308,12 +1318,13 @@ function applyLang(){
   const ls=document.getElementById('lockSel');
   [...ls.options].forEach((o,i)=>{
     if(i<LOCK_STR.length)o.textContent=LOCK_STR[i][k];
-    else{const nm=o.value.slice(2);o.textContent=lang==='zh'? nm.slice(0,3):ZODIAC[nm].en;}
+    else if(o.value!=='sat'){const nm=o.value.slice(2);o.textContent=lang==='zh'? nm.slice(0,3):ZODIAC[nm].en;}
   });
   if(typeof viewBody!=='undefined'&&viewBody==='moon'){
     const mo=[...ls.options].find(o=>o.value==='moon');
     if(mo)mo.textContent=T('地球','Earth');
   }
+  {const so=[...ls.options].find(o=>o.value==='sat'); if(so)so.textContent=T('土星','Saturn');}
   const rs=document.getElementById('retroSel');
   [...rs.options].forEach(o=>{o.textContent=lang==='zh'?ELEM[+o.value].name:ELEM[+o.value].en;});
   playBtn.textContent=playing? T('⏸ 暫停','⏸ Pause') : T('▶ 播放','▶ Play');
@@ -1487,7 +1498,7 @@ const fadeMat=new THREE.MeshBasicMaterial({color:0x060912,transparent:true,opaci
 fadeScene.add(new THREE.Mesh(new THREE.PlaneBufferGeometry(2,2),fadeMat));
 let trailsPrev=false, needTrailClear=true;
 let trailFxOn=false, trailFxSaved=null;
-const sunWorld=new THREE.Vector3(), moonWorld=new THREE.Vector3(), earthWorld=new THREE.Vector3();
+const sunWorld=new THREE.Vector3(), moonWorld=new THREE.Vector3(), earthWorld=new THREE.Vector3(), satWorld=new THREE.Vector3();
 const camFwdR=new THREE.Vector3(), tmpVR=new THREE.Vector3();
 const camRgt=new THREE.Vector3(), camUpv=new THREE.Vector3();
 const mhatV=new THREE.Vector3(), qV=new THREE.Vector3();
@@ -1675,9 +1686,11 @@ function animate(now){
     const sp=helio(5,TR), aT=2*Math.PI*days(simMs)/15.945;
     obsV={x:sp.x+Math.cos(aT)*0.008168, y:sp.y+Math.sin(aT)*0.008168, z:sp.z};
   }
-  const hideK={earth:EARTH_IDX, moon:'moon', mars:3, titan:null}[viewBody];
+  /* 各觀察地隱藏清單:所在天體本身;火星/泰坦距地月系遙遠,
+     月亮緊貼地球無法分辨 → 不顯示 */
+  const hideKs={earth:[EARTH_IDX], moon:['moon'], mars:[3,'moon'], titan:['moon']}[viewBody];
   for(const b of skyBodies){
-    b.grp.visible=(b.key!==hideK);
+    b.grp.visible=!hideKs.includes(b.key);
     if(!b.grp.visible)continue;
     let g;
     if(b.key==='sun')g={x:-obsV.x,y:-obsV.y,z:-obsV.z};
@@ -1705,6 +1718,7 @@ function animate(now){
     if(b.key==='sun'){ sunAlt=v.y/(DOME*0.9); sunWorld.copy(v); }
     if(b.key==='moon'){ moonWorld.copy(v); }
     if(b.key===EARTH_IDX){ earthWorld.copy(v); }
+    if(b.key===5){ satWorld.copy(v); }
   }
   if(moonPathLine)moonPathLine.visible=showEclLines&&viewBody==='earth';
   moonPathLbl.visible=showEclLines&&viewBody==='earth';
@@ -1736,6 +1750,7 @@ function animate(now){
     let tgt;
     if(lockMode==='sun')tgt=sunWorld;
     else if(lockMode==='moon')tgt=(viewBody==='moon')? earthWorld : moonWorld; /* 月球上=鎖定地球 */
+    else if(lockMode==='sat')tgt=satWorld; /* 泰坦上鎖定土星 */
     else{ /* 鎖定星座:質心 → 歲差 → 地平座標 */
       tgt=tmpVR.copy(CONST_CENTROIDS[lockMode.slice(2)])
         .applyQuaternion(starFrameR.quaternion).applyMatrix4(skyMat4).multiplyScalar(DOME*0.9);
@@ -1930,7 +1945,7 @@ const AI_IDS=['dt','speed','lat','lon','langSel','tidalChk','phaseChk','sphereCh
  'scaleChk','obsSel','retroSel','trailChk','trackSel','lockSel','constChk','eclLineChk','bgStarChk',
  'dayChk','textChk','hideHorChk','invChk','trailFxChk','playBtn','nowBtn','homeBtn','retroTableBtn'];
 const AI_SPEC=`Controls. set:{"type":"set","id":ID,"value":V}; click:{"type":"click","id":ID}.
-dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
+dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|10800000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
 Checkbox bool: tidalChk tidal, phaseChk moon-phase&shadows, sphereChk celestial-sphere, signChk zodiac-sectors, orbitChk orbits, scaleChk true-scale, trailChk retro-trail, constChk constellations, eclLineChk ref-lines, bgStarChk stars, dayChk day/night, textChk labels, hideHorChk hide-horizon, invChk invert-drag, trailFxChk motion-trails(only |speed|>=86400000).
 Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座♈|c:金牛座♉|c:雙子座♊|c:巨蟹座♋|c:獅子座♌|c:處女座♍|c:天秤座♎|c:天蠍座♏|c:射手座♐|c:摩羯座♑|c:水瓶座♒|c:雙魚座♓.
 Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.`;

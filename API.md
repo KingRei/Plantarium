@@ -25,7 +25,7 @@ Buttons are triggered with `.click()`. Keyboard flight uses real `keydown`/`keyu
 | `dt` | datetime-local | any local datetime (full accuracy 1700–2300) | now | sets simulation time |
 | `nowBtn` | button | — | — | jump to current real time |
 | `playBtn` | button | toggles | paused | play/pause; label reflects state |
-| `speed` | select | ms of sim-time per real second: `3600000` (1 h/s), `7200000` (2 h/s, default), `21600000` (6 h/s), `86400000` (1 d/s), `259200000` (3 d/s), `864000000` (10 d/s), `-86400000` (reverse 1 d/s) | `7200000` | playback rate |
+| `speed` | select | ms of sim-time per real second: `3600000` (1 h/s), `7200000` (2 h/s, default), `10800000` (3 h/s), `21600000` (6 h/s), `86400000` (1 d/s), `259200000` (3 d/s), `864000000` (10 d/s), `-86400000` (reverse 1 d/s) | `7200000` | playback rate |
 | `lat` | number | −89.9 … 89.9 | 25.03 | observer latitude (°, N positive) |
 | `lon` | number | −180 … 180 | 121.56 | observer longitude (°, E positive) |
 | `retroTableBtn` | button | — | — | open yearly retrograde-interval modal (`yPrev`/`yNext` change year, `mClose` closes) |
@@ -72,6 +72,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 
 - **Anchored sidereal time** (automatic, no control): while playing at \|speed\| ≥ 1 day/s with any `lockSel`/`trackSel` active, the sky's diurnal rotation is re-anchored to the locked body's right ascension so motion stays 60 fps smooth; true sidereal time resumes below the threshold.
 - `lockSel` + `trackSel=lun_*` glues the Moon to the on-screen vertical line (lunar-orbit-plane roll); `lockSel=moon` + `ecl_*` shows its ±5.1° weave about the ecliptic instead.
+- Observer body (`viewBodySel`: earth/moon/mars/titan) reshapes the sky view: planetocentric horizon frames, angular-size scaling (huge ringed Saturn from Titan, textured rotating Earth from the Moon), atmosphere-accurate sky colors (black lunar daytime, butterscotch Mars, orange Titan haze), observer's own body hidden, Moon hidden from Mars/Titan, lock menu adapts (Moon→Earth on the Moon; Saturn appears on Titan), lunar-axis options and the whole retrograde-trail row are Earth-only.
 - Eclipse states (`#eclipseChip`, toasts, blood-moon tint, shadow-cone highlights, solar corona) are computed automatically from geometry; jump `dt` to e.g. `2026-08-12T17:40` (UTC) or `2025-09-07` to trigger.
 - Lunar calendar (`#lunarRead`), Julian Day (`#jdReadout`), sim time (`#timeReadout`) update ~4×/s.
 - Chinese calendar & full accuracy window: years 1700–2300.
