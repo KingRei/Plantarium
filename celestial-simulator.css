@@ -67,8 +67,8 @@
   }
   .overlay input[type="checkbox"]{accent-color:var(--brass);}
   #retroStatus{
-    font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:4px 10px;border-radius:8px;
-    border:1px solid var(--line);background:rgba(10,14,28,.6);
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:2px 8px;border-radius:6px;
+    border:1px solid var(--line);background:rgba(10,14,28,.6);margin-left:2px;
   }
   #retroStatus.retro{color:#FF8A6B;border-color:rgba(255,138,107,.5);}
   #retroStatus.pro{color:var(--cyan);}
