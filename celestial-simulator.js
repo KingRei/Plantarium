@@ -938,7 +938,7 @@ function addSkyBody(key,getText,colorCss,dotR,glow,boldLbl){
   if(glow){const g=makeGlow(glow[0],glow[1],glow[2]);grp.add(g);}
   const lbl=mkLbl('R',getText,colorCss,4.2,boldLbl);
   lbl.position.set(0,dotR+3.2,0); grp.add(lbl);
-  skyBodies.push({key,grp,mat,lbl});
+  skyBodies.push({key,grp,mat,lbl,dot,dotR});
 }
 addSkyBody('sun',()=>T('太陽','Sun'),'#ffd75e',2.6,['rgba(255,240,180,1)','rgba(255,190,80,.5)',16],true);
 /* 日食日冕環(右視窗,日食時顯示) */
@@ -977,6 +977,15 @@ for(let i=0;i<ELEM.length;i++){
   addSkyBody(i,()=>pname(i),'#'+ELEM[i].color.toString(16).padStart(6,'0'),1.1,null,false);
 }
 addSkyBody(EARTH_IDX,()=>T('地球','Earth'),'#5B8FD9',1.6,['rgba(160,200,255,.9)','rgba(90,140,220,.35)',7],true); /* 從其他觀察地可見 */
+/* 土星在天空中的環(從泰坦看會隨土星視尺寸放大而壯觀呈現) */
+{
+  const sb=skyBodies.find(b=>b.key===5);
+  const rk=new THREE.Mesh(new THREE.RingGeometry(sb.dotR*1.35,sb.dotR*2.25,48),
+    new THREE.MeshBasicMaterial({color:0xd8c294,side:THREE.DoubleSide,transparent:true,opacity:0.5,depthWrite:false}));
+  const sp2=eqUnit(40.589*DEG,83.537*DEG); /* 土星自轉極(赤道座標) */
+  rk.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(sp2.x,sp2.y,sp2.z));
+  sb.dot.add(rk);
+}
 /* 觀察地:地平視角的觀測者所在天體 */
 let viewBody='earth';
 function eqToEclP(v){ /* 赤道→黃道(純物件版) */
@@ -989,9 +998,32 @@ const OBS_POLE={ /* 自轉極(黃道座標) */
   titan:(()=>{const e=eqUnit(40.589*DEG,83.537*DEG);return eqToEclP({x:e.x,y:e.y,z:e.z});})()
 };
 const OBS_SPIN={moon:27.321661, mars:1.02595675, titan:15.945}; /* 自轉週期(日);泰坦潮汐鎖定 */
+function syncObserverUI(){
+  /* 鎖定選單:月球上「月亮」→「地球」;火星/泰坦上移除(月球緊貼地球無獨立意義) */
+  const mo=[...lockSelEl.options].find(o=>o.value==='moon');
+  mo.textContent=(viewBody==='moon')? T('地球','Earth') : T('月亮','Moon');
+  mo.hidden=(viewBody==='mars'||viewBody==='titan');
+  if(mo.hidden&&lockSelEl.value==='moon'){ lockSelEl.value='none'; }
+  /* 白道軸置中僅地球觀察地有意義(其他觀察地上月球軌道面不構成天空參考線) */
+  [...trackSelEl.options].forEach(o=>{ if(o.value.startsWith('lun'))o.hidden=(viewBody!=='earth'); });
+  if(trackSelEl.value.startsWith('lun')&&viewBody!=='earth'){ trackSelEl.value='off'; }
+  applyTrack();
+  updateObsDotParent();
+  updateLoc();
+}
+/* 觀察者紅點:移到所選觀察地的星體上(左視窗示意) */
+function updateObsDotParent(){
+  const dot=window._obsDot;
+  if(dot.parent)dot.parent.remove(dot);
+  if(viewBody==='earth'){ earthSpin.add(dot); }
+  else if(viewBody==='moon'){ moonMesh.add(dot); }
+  else if(viewBody==='mars'){ planetMeshes[3].add(dot); }
+  else{ satMoons[4].mesh.add(dot); } /* 泰坦 */
+}
 document.getElementById('viewBodySel').addEventListener('change',e=>{
   viewBody=e.target.value;
   needTrailClear=true;
+  syncObserverUI();
 });
 
 /* 白道:月球軌道面在天球上的路徑(對黃道傾約 5.1°,交點 18.6 年退行一圈) */
@@ -1262,6 +1294,10 @@ function applyLang(){
     if(i<LOCK_STR.length)o.textContent=LOCK_STR[i][k];
     else{const nm=o.value.slice(2);o.textContent=lang==='zh'? nm.slice(0,3):ZODIAC[nm].en;}
   });
+  if(typeof viewBody!=='undefined'&&viewBody==='moon'){
+    const mo=[...ls.options].find(o=>o.value==='moon');
+    if(mo)mo.textContent=T('地球','Earth');
+  }
   const rs=document.getElementById('retroSel');
   [...rs.options].forEach(o=>{o.textContent=lang==='zh'?ELEM[+o.value].name:ELEM[+o.value].en;});
   playBtn.textContent=playing? T('⏸ 暫停','⏸ Pause') : T('▶ 播放','▶ Play');
@@ -1407,9 +1443,11 @@ latIn.addEventListener('change',updateLoc); lonIn.addEventListener('change',upda
 function updateLoc(){
   const la=+latIn.value, lo=+lonIn.value;
   locRead.textContent=`${Math.abs(la).toFixed(2)}°${la>=0?'N':'S'} ${Math.abs(lo).toFixed(2)}°${lo>=0?'E':'W'}`;
-  /* 紅點=觀測者經緯度(earthSpin 依 GMST 自轉 → 該點赤經 = GMST+λ,正確對應) */
+  /* 紅點=觀測者經緯度;依觀察地放在對應星體表面(地球隨 GMST 自轉,赤經=GMST+λ 正確對應;
+     其他觀察地為示意擺放) */
   const laR=la*DEG, loR=lo*DEG;
-  window._obsDot.position.set(1.55*Math.cos(laR)*Math.cos(loR), 1.55*Math.sin(laR), -1.55*Math.cos(laR)*Math.sin(loR));
+  const rD={earth:1.55, moon:0.60, mars:(ELEM[3].size*1.1), titan:0.34}[viewBody]||1.55;
+  window._obsDot.position.set(rD*Math.cos(laR)*Math.cos(loR), rD*Math.sin(laR), -rD*Math.cos(laR)*Math.sin(loR));
 }
 
 const lunarRead=document.getElementById('lunarRead');
@@ -1426,7 +1464,7 @@ const fadeMat=new THREE.MeshBasicMaterial({color:0x060912,transparent:true,opaci
 fadeScene.add(new THREE.Mesh(new THREE.PlaneBufferGeometry(2,2),fadeMat));
 let trailsPrev=false, needTrailClear=true;
 let trailFxOn=false, trailFxSaved=null;
-const sunWorld=new THREE.Vector3(), moonWorld=new THREE.Vector3();
+const sunWorld=new THREE.Vector3(), moonWorld=new THREE.Vector3(), earthWorld=new THREE.Vector3();
 const camFwdR=new THREE.Vector3(), tmpVR=new THREE.Vector3();
 const camRgt=new THREE.Vector3(), camUpv=new THREE.Vector3();
 const mhatV=new THREE.Vector3(), qV=new THREE.Vector3();
@@ -1626,15 +1664,22 @@ function animate(now){
       const h=helio(b.key,TR);
       g={x:h.x-obsV.x, y:h.y-obsV.y, z:h.z-obsV.z};
     }
+    const distAU=Math.hypot(g.x,g.y,g.z);
     const e=eclToEq(rotEclZ(g,psiR));
     const v=new THREE.Vector3(e.x,e.y,e.z).normalize().multiplyScalar(DOME*0.9);
     b.grp.position.copy(v);
+    if(b.dot){ /* 視大小:依真實角尺寸放大(近距天體變大),下限=原點大小 */
+      const Rkm=b.key==='sun'?696000: b.key==='moon'?1737.4: TRUE_KM[b.key];
+      const sc=(DOME*0.9)*Math.atan((Rkm/AU_KM)/Math.max(distAU,1e-9))/b.dotR;
+      b.dot.scale.setScalar(Math.min(60,Math.max(1,sc)));
+    }
     v.applyMatrix4(skyMat4);
     const below=!hideHorizon && v.y<0;
     b.mat.opacity=below?0.22:1;
     b.lbl.material.opacity=below?0.28:1;
     if(b.key==='sun'){ sunAlt=v.y/(DOME*0.9); sunWorld.copy(v); }
     if(b.key==='moon'){ moonWorld.copy(v); }
+    if(b.key===EARTH_IDX){ earthWorld.copy(v); }
   }
   if(moonPathLine)moonPathLine.visible=showEclLines&&viewBody==='earth';
   moonPathLbl.visible=showEclLines&&viewBody==='earth';
@@ -1665,7 +1710,7 @@ function animate(now){
   if(lockMode!=='none'){
     let tgt;
     if(lockMode==='sun')tgt=sunWorld;
-    else if(lockMode==='moon')tgt=moonWorld;
+    else if(lockMode==='moon')tgt=(viewBody==='moon')? earthWorld : moonWorld; /* 月球上=鎖定地球 */
     else{ /* 鎖定星座:質心 → 歲差 → 地平座標 */
       tgt=tmpVR.copy(CONST_CENTROIDS[lockMode.slice(2)])
         .applyQuaternion(starFrameR.quaternion).applyMatrix4(skyMat4).multiplyScalar(DOME*0.9);
