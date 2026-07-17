@@ -31,6 +31,8 @@ Buttons are triggered with `.click()`. Keyboard flight uses real `keydown`/`keyu
 | `retroTableBtn` | button | — | — | open yearly retrograde-interval modal (`yPrev`/`yNext` change year, `mClose` closes) |
 | `langSel` | select | `zh`, `en` | `zh` | UI + all in-scene 3D label language |
 
+Header also hosts `notifyBtn` (🔔/🔕 mute toasts; AI replies always show) and `micBtn` (🎙 voice AI: Groq ASR + GitHub Models LLM via same-origin Netlify Functions proxy `/.netlify/functions/asr|llm`, falling back to locally-stored keys; actions restricted to a 28-id whitelist).
+
 Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author tag.
 
 ## Left pane (heliocentric orrery) — panel toggled by clicking `#chipL`
@@ -42,6 +44,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 | `sphereChk` | checkbox | on | celestial sphere: constellations, ecliptic, precession circle, Polaris |
 | `signChk` | checkbox | off | tropical zodiac sign sectors (precess against the stars) |
 | `orbitChk` | checkbox | on | planet orbit lines |
+| `extraConstChk` | checkbox | off | extra famous constellations in the sky view: Ophiuchus, Summer Triangle, Centaurus, Orion, Ursa Major (Big Dipper), Cassiopeia, Crux |
 | `scaleChk` | checkbox | off | **true-scale mode**: one linear scale (1 AU = 323 units) for sizes *and* distances; enables fly pad, observe controls, deep zoom (0.002–45 000); camera state is saved/restored per mode |
 | `homeBtn` | button (true-scale only) | — | reset true-scale view to origin |
 | `obsSel` | select (true-scale only) | `none` | follow-camera target: `none`, `sun`, `p0`…`p8` (Mercury…Pluto by ELEM index; `p2`=Earth), `moon`; jumps to 10× body radius and tracks the body; WASD flight cancels it |
@@ -52,7 +55,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 | id | type | values | default | effect |
 |---|---|---|---|---|
 | `retroSel` | select | ELEM index as string: `0` Mercury, `1` Venus, `3` Mars, `4` Jupiter, `5` Saturn, `6` Uranus, `7` Neptune, `8` Pluto | `0` | which planet's retrograde trail is drawn; `#retroStatus` shows prograde/retrograde live |
-| `trailChk` | checkbox | on | show the retrograde trail (solid past / dashed future / 30-day dots) |
+| `trailChk` | checkbox | **off** | show the retrograde trail (solid past / dashed future / 30-day dots) |
 | `trackSel` | select | `off`, `ecl_e`, `ecl_w`, `lun_e`, `lun_w` | `off` | **axis lock**: rolls camera so the ecliptic (`ecl_*`) or lunar orbit (`lun_*`) is a straight vertical line through screen center, aimed at its eastern (`_e`) or western (`_w`) horizon crossing; vertical drag slides the view along the axis |
 | `lockSel` | select | `none`, `sun`, `moon`, `c:<zodiacKey>` (12 keys, e.g. `c:牡羊座♈` … `c:雙魚座♓`) | `none` | **target lock**: keeps the body/constellation centroid pinned at exact screen center; combinable with `trackSel` (target centered *and* chosen orbital plane kept vertical) |
 | `constChk` | checkbox | on | constellation stick figures & names |

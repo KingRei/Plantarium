@@ -415,11 +415,12 @@ class LookDrag{
       this.cam.position.z - cp*Math.cos(this.yaw));
   }
 }
-function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stripGlyph){
+function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stripGlyph, dataset){
+  const DATA=dataset||ZODIAC;
   const buckets=[[],[],[],[]];
   const linePts=[];
-  for(const name in ZODIAC){
-    const c=ZODIAC[name];
+  for(const name in DATA){
+    const c=DATA[name];
     const vs=c.s.map(st=>toVec(eqUnit(st[0]*DEG,st[1]*DEG)).multiplyScalar(radius));
     c.s.forEach((st,i)=>{
       const m=st[2];
@@ -431,9 +432,9 @@ function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stri
     vs.forEach(v=>cen.add(v));
     cen.normalize().multiplyScalar(radius);
     const glyph=name.slice(3);
-    const getText=stripGlyph
-      ? ()=>T(name.slice(0,3), c.en)
-      : ()=>T(name, c.en+' '+glyph);
+    const getText=c.zh
+      ? ()=>T(c.zh, c.en)
+      : (stripGlyph? ()=>T(name.slice(0,3), c.en) : ()=>T(name, c.en+' '+glyph));
     const lbl=mkLbl(group,getText,'#E3B34C',labelH,false);
     lbl.position.copy(cen); parent.add(lbl);
   }
@@ -588,7 +589,7 @@ function applyScaleMode(){
    軌道半徑經壓縮以利辨識(實際為 6~26 個行星半徑),週期與方向真實。 */
 const SAT_DEFS={
  4:[[1.9,1.769,0xE8D08A,0.20],[2.4,3.551,0xF0EDE6,0.17],[3.0,7.155,0xBDB6A8,0.26],[3.9,16.689,0x8F8578,0.24]],
- 5:[[3.4,15.945,0xE0B36A,0.26],[2.4,4.518,0xCFCFD6,0.15]],
+ 5:[[3.4,15.945,0xE0B36A,0.26,'Titan'],[2.4,4.518,0xCFCFD6,0.15]],
  6:[[2.3,2.520,0xC8D2DA,0.14],[2.9,8.706,0xD8DEE6,0.18],[3.5,13.463,0xB9C2CE,0.17]],
  7:[[2.6,-5.877,0xBFE0E8,0.22]]
 };
@@ -599,11 +600,15 @@ for(const pi in SAT_DEFS){
   const grp=new THREE.Group();
   grp.rotation.x=Math.PI/2-SAT_TILT[i]; /* 與環同面(行星赤道面) */
   host.add(grp);
-  for(const [rr,per,col,sz] of SAT_DEFS[i]){
+  for(const [rr,per,col,sz,named] of SAT_DEFS[i]){
     const R=base*rr;
     const m=new THREE.Mesh(new THREE.SphereGeometry(sz,10,8),
       new THREE.MeshStandardMaterial({color:col,roughness:0.8}));
     grp.add(m);
+    if(named){ /* 泰坦文字標記 */
+      const tl=mkLbl('L',()=>T('泰坦','Titan'),'#E0B36A',3.0,false);
+      tl.position.set(0,sz+0.5,0); m.add(tl);
+    }
     const op=[]; for(let k=0;k<=48;k++){const a=k/48*2*Math.PI;op.push(new THREE.Vector3(Math.cos(a)*R,Math.sin(a)*R,0));}
     grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(op),
       new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.22})));
@@ -860,6 +865,17 @@ let hideHorizon=false;
 const skyGroup=new THREE.Group(); skyGroup.matrixAutoUpdate=false; sceneR.add(skyGroup);
 const starFrameR=new THREE.Group(); skyGroup.add(starFrameR); /* 恆星層:隨歲差旋轉 */
 const constGroupR=new THREE.Group(); starFrameR.add(constGroupR);
+/* 其他知名星座(左面板「其他星座」開啟後顯示於地平視角) */
+const EXTRA_CONST={
+ 'oph':{zh:'蛇夫座',en:'Ophiuchus',s:[[263.73,12.56,2.1],[257.59,-15.72,2.4],[249.29,-10.57,2.6],[243.59,-3.69,2.7],[244.58,-4.69,3.2],[265.87,4.57,2.8],[254.42,9.38,3.2]],l:[[0,5],[5,1],[1,2],[2,4],[4,3],[3,6],[6,0]]},
+ 'tri':{zh:'夏季大三角',en:'Summer Triangle',s:[[279.23,38.78,0.0],[310.36,45.28,1.25],[297.70,8.87,0.77]],l:[[0,1],[1,2],[2,0]]},
+ 'cen':{zh:'半人馬座',en:'Centaurus',s:[[219.90,-60.83,0.1],[210.96,-60.37,0.6],[211.67,-36.37,2.1],[190.38,-48.96,2.2],[204.97,-53.47,2.3],[208.89,-47.29,2.5]],l:[[0,1],[1,4],[4,3],[4,5],[5,2]]},
+ 'ori':{zh:'獵戶座',en:'Orion',s:[[88.79,7.41,0.5],[78.63,-8.20,0.1],[81.28,6.35,1.6],[86.94,-9.67,2.1],[85.19,-1.94,1.7],[84.05,-1.20,1.7],[83.00,-0.30,2.2],[83.78,9.93,3.4]],l:[[0,2],[2,6],[6,5],[5,4],[4,0],[6,1],[4,3],[0,7],[7,2]]},
+ 'uma':{zh:'大熊座·北斗',en:'Ursa Major',s:[[165.93,61.75,1.8],[165.46,56.38,2.4],[178.46,53.69,2.4],[183.86,57.03,3.3],[193.51,55.96,1.8],[200.98,54.93,2.2],[206.89,49.31,1.9]],l:[[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[5,6]]},
+ 'cas':{zh:'仙后座',en:'Cassiopeia',s:[[2.29,59.15,2.3],[10.13,56.54,2.2],[14.18,60.72,2.5],[21.45,60.24,2.7],[28.60,63.67,3.4]],l:[[0,1],[1,2],[2,3],[3,4]]},
+ 'cru':{zh:'南十字座',en:'Crux',s:[[186.65,-63.10,0.8],[187.79,-57.11,1.6],[191.93,-59.69,1.3],[183.79,-58.75,2.8]],l:[[0,1],[2,3]]}
+};
+const extraGroupR=new THREE.Group(); extraGroupR.visible=false; starFrameR.add(extraGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
 let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
 {
@@ -888,6 +904,7 @@ let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
   window._eclLbl.visible=false;
   skyGroup.add(window._eclLbl);
   buildConstellations(constGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true);
+  buildConstellations(extraGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true, EXTRA_CONST);
   const pol=eqUnit(37.95*DEG,89.264*DEG).multiplyScalar(DOME*0.96);
   const star=makeGlow('rgba(255,255,255,1)','rgba(160,200,255,.5)',7); star.position.copy(pol);
   starFrameR.add(star); regGlowR(star);
@@ -1168,6 +1185,7 @@ const UI_STR={
   uiTidal:['月球潮汐力示意','Lunar tidal forces'],
   uiSphere:['天球與星座','Celestial sphere & constellations'],
   uiSign:['十二宮區塊(隨歲差)','Zodiac sign sectors (precessing)'],
+  uiExtraConst:['其他星座','More constellations'],
   uiOrbit:['軌道線','Orbit lines'],
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],
   uiConst:['星座圖形','Constellation figures'],
@@ -1176,7 +1194,8 @@ const UI_STR={
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
   uiTrailFx:['運動殘影(星軌)','Motion trails (star arcs)'],
-  anchorHint:['⚓ 周日已凍結;日夜/地平線失義','⚓ Diurnal frozen; day/horizon N/A'],
+  anchorHint:['⚓ 周日運動已凍結(等效每天同一時刻觀測):日夜循環與昇落暫停;地平線仍是該時刻的真實地平',
+    '⚓ Diurnal motion frozen — like observing at the same clock time each day: day/night & risings pause; the horizon is still the true horizon for that instant'],
   homeBtn:['⌂ 回到原點','⌂ Reset view'],
   uiObserve:['觀察','Observe'],
   uiLock:['鎖定','Lock'],
@@ -1237,7 +1256,7 @@ document.getElementById('langSel').addEventListener('change',e=>{
    8. 時間、UI 與主迴圈
    ══════════════════════════════════════════════════════════ */
 let simMs=Date.now(), playing=false;
-let showTrail=true, dayNight=true;
+let showTrail=false, dayNight=true; /* 逆行軌跡線預設關閉 */
 const dtInput=document.getElementById('dt');
 const playBtn=document.getElementById('playBtn');
 const speedSel=document.getElementById('speed');
@@ -1266,6 +1285,7 @@ document.getElementById('textChk').addEventListener('change',e=>{
 });
 document.getElementById('sphereChk').addEventListener('change',e=>sphereGroup.visible=e.target.checked);
 document.getElementById('signChk').addEventListener('change',e=>signBelt.visible=e.target.checked);
+document.getElementById('extraConstChk').addEventListener('change',e=>extraGroupR.visible=e.target.checked);
 document.getElementById('orbitChk').addEventListener('change',e=>orbitGroup.visible=e.target.checked);
 const camStateN={r:CAM_REF,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
 const camStateT={r:2200,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
@@ -1421,7 +1441,8 @@ function animate(now){
     const dNow=days(simMs);
     for(const sm of satMoons){
       const a=2*Math.PI*(dNow/sm.per);
-      sm.mesh.position.set(Math.cos(a)*sm.R,Math.sin(a)*sm.R,0);
+      /* 方向修正:順行衛星自黃道北望為逆時針(與行星公轉同向);崔頓 per<0 → 順時針(逆行) */
+      sm.mesh.position.set(Math.cos(a)*sm.R,-Math.sin(a)*sm.R,0);
     }
   }
   if(trueScale){
@@ -1478,7 +1499,7 @@ function animate(now){
   }
   for(const L of labelsL){
     L.sp.getWorldPosition(sunWorld); /* 借用暫存向量 */
-    let f=Math.max(0.005,Math.min(250,sunWorld.distanceTo(camL.position)/CAM_REF));
+    let f=Math.max(0.00001,Math.min(250,sunWorld.distanceTo(camL.position)/CAM_REF)); /* 深潛特寫時文字維持恆定螢幕大小 */
     L.sp.parent.getWorldScale(tmpVR);       /* 抵銷母體(行星)縮放 */
     f/=Math.max(1e-6,tmpVR.x);
     L.sp.scale.set(L.base.x*f,L.base.y*f,1);
@@ -1794,28 +1815,49 @@ micBtn.addEventListener('click',async()=>{
   }catch(e){ toast(T('⚠ 無法取得麥克風','⚠ Microphone unavailable'),false,true); }
 });
 async function handleVoice(blob){
-  const gk=getKey(GROQ_KEY_ENC,'tq_groq',T('輸入 Groq API Key(混淆後僅存本機)','Groq API key (obfuscated, stored locally)'));
-  const hk=getKey(GH_TOKEN_ENC,'tq_gh',T('輸入 GitHub Models Token(混淆後僅存本機)','GitHub Models token (obfuscated, stored locally)'));
-  if(!gk||!hk){ toast(T('⚠ 未設定 API 金鑰','⚠ API keys not set'),false,true); return; }
-  const fd=new FormData();
-  fd.append('file',blob,'voice.webm');
-  fd.append('model','whisper-large-v3');
-  const tr=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',
-    {method:'POST',headers:{Authorization:'Bearer '+gk},body:fd});
-  if(!tr.ok)throw new Error('ASR '+tr.status);
-  const text=((await tr.json()).text||'').trim();
+  /* 代理優先:先打同網域 Netlify Functions(金鑰存於伺服器環境變數,
+     使用者零設定);代理不存在或失效(404/500,例如你從後台移除金鑰)
+     時,退回本機金鑰模式(prompt 一次、混淆存 localStorage)。 */
+  let text='';
+  try{
+    const r=await fetch('/.netlify/functions/asr',
+      {method:'POST',headers:{'Content-Type':blob.type||'audio/webm'},body:blob});
+    if(!r.ok)throw 0;
+    text=((await r.json()).text||'').trim();
+  }catch(e){
+    const gk=getKey(GROQ_KEY_ENC,'tq_groq',T('輸入 Groq API Key(混淆後僅存本機)','Groq API key (obfuscated, stored locally)'));
+    if(!gk){ toast(T('⚠ ASR 代理與本機金鑰皆未設定','⚠ No ASR proxy or local key'),false,true); return; }
+    const fd=new FormData();
+    fd.append('file',blob,'voice.webm');
+    fd.append('model','whisper-large-v3');
+    const tr=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',
+      {method:'POST',headers:{Authorization:'Bearer '+gk},body:fd});
+    if(!tr.ok)throw new Error('ASR '+tr.status);
+    text=((await tr.json()).text||'').trim();
+  }
   if(!text){ toast(T('⚠ 未聽到內容','⚠ Heard nothing'),false,true); return; }
   toast('🎙 '+text.slice(0,40),false,true);
-  const lr=await fetch('https://models.inference.ai.azure.com/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json',Authorization:'Bearer '+hk},
-    body:JSON.stringify({model:'gpt-4o-mini',temperature:0.2,
-      response_format:{type:'json_object'},
-      messages:[{role:'system',content:AI_SYS},{role:'user',content:text}]})
-  });
-  if(!lr.ok)throw new Error('LLM '+lr.status);
+  const payload={model:'gpt-4o-mini',temperature:0.2,
+    response_format:{type:'json_object'},
+    messages:[{role:'system',content:AI_SYS},{role:'user',content:text}]};
+  let raw;
+  try{
+    const r=await fetch('/.netlify/functions/llm',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok)throw 0;
+    raw=await r.json();
+  }catch(e){
+    const hk=getKey(GH_TOKEN_ENC,'tq_gh',T('輸入 GitHub Models Token(混淆後僅存本機)','GitHub Models token (obfuscated, stored locally)'));
+    if(!hk){ toast(T('⚠ LLM 代理與本機金鑰皆未設定','⚠ No LLM proxy or local key'),false,true); return; }
+    const lr=await fetch('https://models.inference.ai.azure.com/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+hk},
+      body:JSON.stringify(payload)});
+    if(!lr.ok)throw new Error('LLM '+lr.status);
+    raw=await lr.json();
+  }
   let out;
-  try{ out=JSON.parse((await lr.json()).choices[0].message.content); }
+  try{ out=JSON.parse(raw.choices[0].message.content); }
   catch(e){ throw new Error(T('回覆解析失敗','Bad AI response')); }
   let n=0;
   if(Array.isArray(out.actions))for(const a of out.actions){
