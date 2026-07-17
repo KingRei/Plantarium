@@ -559,10 +559,15 @@ function applyScaleMode(){
   sphereGroup.scale.setScalar(sphereScale);
   signBelt.scale.setScalar(sphereScale);
   markerPts.visible=trueScale;
-  /* 相機範圍:可深潛至地月系、也可退到冥王星外 */
-  if(trueScale){ ctrlL.min=0.002; ctrlL.max=45000; ctrlL.r=2200; } /* 可縮放到月球(半徑 0.0038)特寫 */
-  else{ ctrlL.min=CAM_REF*0.06; ctrlL.max=CAM_REF*2.2; ctrlL.r=CAM_REF; }
-  ctrlL.apply();
+  /* 相機:兩種模式各自的縮放範圍與視角狀態,互不影響;
+     非正確比例永遠以太陽(原點)為中心 */
+  if(trueScale){ ctrlL.min=0.002; ctrlL.max=45000; }
+  else{ ctrlL.min=CAM_REF*0.06; ctrlL.max=CAM_REF*2.2; camStateN.tx=0;camStateN.ty=0;camStateN.tz=0; }
+  loadCam(trueScale? camStateT : camStateN);
+  document.getElementById('flyPad').style.display=trueScale?'grid':'none';
+  document.getElementById('flyExtra').style.display=trueScale?'flex':'none';
+  observeIdx='none';
+  document.getElementById('obsSel').value='none';
   buildOrbits();
 }
 
@@ -1112,6 +1117,8 @@ const UI_STR={
   uiTrack:['黃道軸置中','Ecliptic axis lock'],
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
+  homeBtn:['⌂ 回到原點','⌂ Reset view'],
+  uiObserve:['觀察','Observe'],
   uiLock:['鎖定','Lock'],
   uiDay:['日夜背景變化','Day–night background'],
   uiText:['文字標籤','Text labels'],
@@ -1141,6 +1148,12 @@ function applyLang(){
   [...sp.options].forEach((o,i)=>o.textContent=SPEED_STR[i][k]);
   const ts=document.getElementById('trackSel');
   [...ts.options].forEach((o,i)=>o.textContent=TRACK_STR[i][k]);
+  [...obsSel.options].forEach(o=>{
+    if(o.value==='none')o.textContent='—';
+    else if(o.value==='sun')o.textContent=T('太陽','Sun');
+    else if(o.value==='moon')o.textContent=T('月球','Moon');
+    else o.textContent=pname(+o.value.slice(1));
+  });
   const ls=document.getElementById('lockSel');
   [...ls.options].forEach((o,i)=>{
     if(i<LOCK_STR.length)o.textContent=LOCK_STR[i][k];
@@ -1192,7 +1205,17 @@ document.getElementById('textChk').addEventListener('change',e=>{
 document.getElementById('sphereChk').addEventListener('change',e=>sphereGroup.visible=e.target.checked);
 document.getElementById('signChk').addEventListener('change',e=>signBelt.visible=e.target.checked);
 document.getElementById('orbitChk').addEventListener('change',e=>orbitGroup.visible=e.target.checked);
-document.getElementById('scaleChk').addEventListener('change',e=>{trueScale=e.target.checked;applyScaleMode();});
+const camStateN={r:CAM_REF,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
+const camStateT={r:2200,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
+function saveCam(st){st.r=ctrlL.r;st.theta=ctrlL.theta;st.phi=ctrlL.phi;
+  st.tx=ctrlL.target.x;st.ty=ctrlL.target.y;st.tz=ctrlL.target.z;}
+function loadCam(st){ctrlL.r=Math.max(ctrlL.min,Math.min(ctrlL.max,st.r));
+  ctrlL.theta=st.theta;ctrlL.phi=st.phi;ctrlL.target.set(st.tx,st.ty,st.tz);ctrlL.apply();}
+document.getElementById('scaleChk').addEventListener('change',e=>{
+  saveCam(trueScale?camStateT:camStateN); /* 保存離開模式的視角 */
+  trueScale=e.target.checked;
+  applyScaleMode();                        /* 還原進入模式的視角(互不影響) */
+});
 document.getElementById('constChk').addEventListener('change',e=>constGroupR.visible=e.target.checked);
 document.getElementById('bgStarChk').addEventListener('change',e=>starsR.visible=e.target.checked);
 document.getElementById('hideHorChk').addEventListener('change',e=>{
@@ -1266,10 +1289,11 @@ function animate(now){
   requestAnimationFrame(animate);
   const dt=Math.min(0.1,(now-lastReal)/1000); lastReal=now;
   if(playing){ simMs+=(+speedSel.value)*dt; }
-  if(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d){
+  if(trueScale&&(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d)){
     flyHeld+=dt;
     const boost=1+Math.min(6,flyHeld*2.2); /* 長按持續加速,最多 7 倍 */
     ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt,boost);
+    if(observeIdx!=='none'){observeIdx='none';obsSel.value='none';} /* 手動飛行即脫離跟隨 */
   }else flyHeld=0;
   const nearL=Math.min(0.1,Math.max(0.0008,ctrlL.r*0.02));
   if(Math.abs(camL.near-nearL)>nearL*0.2){ camL.near=nearL; camL.updateProjectionMatrix(); }
@@ -1303,6 +1327,13 @@ function animate(now){
   if(trueScale){
     const arr=markerPts.geometry.attributes.position.array, o=ELEM.length*3;
     arr[o]=moonMesh.position.x;arr[o+1]=moonMesh.position.y;arr[o+2]=moonMesh.position.z;
+  }
+  /* 觀察跟隨:樞紐點鎖在所選天體上,隨其公轉移動 */
+  if(trueScale&&observeIdx!=='none'){
+    if(observeIdx==='sun')ctrlL.target.set(0,0,0);
+    else if(observeIdx==='moon')ctrlL.target.copy(moonMesh.position);
+    else ctrlL.target.copy(planetMeshes[+observeIdx.slice(1)].position);
+    ctrlL.apply();
   }
   /* 月相亮半球朝向太陽(太陽在原點) */
   if(moonLit.visible){
@@ -1392,10 +1423,11 @@ function animate(now){
     else if(lockMode==='moon')tgt=moonWorld;
     else{ /* 鎖定星座:質心 → 歲差 → 地平座標 */
       tgt=tmpVR.copy(CONST_CENTROIDS[lockMode.slice(2)])
-        .applyQuaternion(starFrameR.quaternion).applyMatrix4(skyMat4);
+        .applyQuaternion(starFrameR.quaternion).applyMatrix4(skyMat4).multiplyScalar(DOME*0.9);
     }
     if(tgt.lengthSq()>1e-6){
-      const aim=(tgt===tmpVR? tmpVR : tmpVR.copy(tgt)).normalize();
+      /* 以相機位置為原點瞄準天體世界座標:目標嚴格位於畫面正中央 */
+      const aim=(tgt===tmpVR? tmpVR : tmpVR.copy(tgt)).sub(camR.position).normalize();
       if(trackMode!=='off'){
         /* 鎖定 + 黃道軸置中:目標居中,滾轉使黃道方向保持畫面縱向
            (up = 黃道經度增加方向,固定號向以確保晝夜連續不跳轉) */
@@ -1493,6 +1525,32 @@ function resize(){
     cam.aspect=w/h; cam.updateProjectionMatrix();
   });
 }
+/* 觀察星球:相機樞紐點跟隨所選天體(拖曳/縮放仍可自由調整) */
+let observeIdx='none';
+const obsSel=document.getElementById('obsSel');
+{
+  const addOpt=(v,t)=>{const o=document.createElement('option');o.value=v;o.textContent=t;obsSel.appendChild(o);};
+  addOpt('sun','太陽');
+  for(let i=0;i<ELEM.length;i++)addOpt('p'+i,ELEM[i].name);
+  addOpt('moon','月球');
+}
+function observeBodyRadius(v){
+  const k=K_TRUE/AU_KM;
+  if(v==='sun')return 696000*k;
+  if(v==='moon')return 1737.4*k;
+  return TRUE_KM[+v.slice(1)]*k;
+}
+obsSel.addEventListener('change',()=>{
+  observeIdx=obsSel.value;
+  if(observeIdx!=='none'){
+    ctrlL.r=Math.max(ctrlL.min,observeBodyRadius(observeIdx)*10); /* 進到 10 倍半徑的特寫距離 */
+  }
+});
+document.getElementById('homeBtn').addEventListener('click',()=>{
+  observeIdx='none'; obsSel.value='none';
+  ctrlL.target.set(0,0,0); ctrlL.r=2200; ctrlL.theta=0.55; ctrlL.phi=1.05; ctrlL.apply();
+});
+
 /* 自由飛行輸入:鍵盤 WASD 與螢幕按鍵(按住移動) */
 const moveKeys={w:false,a:false,s:false,d:false};
 window.addEventListener('keydown',e=>{
@@ -1507,6 +1565,20 @@ document.querySelectorAll('#flyPad button').forEach(b=>{
   const off=()=>moveKeys[k]=false;
   b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);
 });
+/* 彩蛋:標題懸停(或長按)1.69 秒後浮現作者 */
+{
+  const bt=document.getElementById('brandTitle');
+  const tag=document.getElementById('authorTag');
+  let tmr=null;
+  const arm=()=>{clearTimeout(tmr);tmr=setTimeout(()=>tag.classList.add('show'),1690);};
+  const disarm=()=>{clearTimeout(tmr);tag.classList.remove('show');};
+  bt.addEventListener('pointerenter',arm);
+  bt.addEventListener('pointerdown',arm);
+  bt.addEventListener('pointerleave',disarm);
+  bt.addEventListener('pointerup',()=>{ /* 觸控:放開後若已顯示則保留 3 秒 */
+    if(tag.classList.contains('show'))setTimeout(disarm,3000); else disarm();
+  });
+}
 window.addEventListener('resize',resize);
 /* 點擊視角標籤展開/收合選項面板;小螢幕預設收合以免遮擋畫面 */
 document.getElementById('chipL').addEventListener('click',()=>paneL.classList.toggle('panelHidden'));

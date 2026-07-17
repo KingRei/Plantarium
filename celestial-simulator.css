@@ -19,6 +19,13 @@
   header .brand{display:flex;align-items:baseline;gap:8px;margin-right:4px;}
   header .brand b{color:var(--brass);letter-spacing:.35em;font-size:15px;font-weight:700;}
   header .brand span{color:var(--dim);font-size:11px;letter-spacing:.12em;}
+  #brandTitle{cursor:default;}
+  #authorTag{
+    opacity:0;transform:translateX(-4px);pointer-events:none;
+    transition:opacity .7s ease,transform .7s ease;
+    color:var(--brass);font-style:italic;font-size:11px;letter-spacing:.1em;
+  }
+  #authorTag.show{opacity:.92;transform:none;}
   .ctl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);}
   .ctl label{white-space:nowrap;}
   input[type="datetime-local"],select,input[type="number"]{
@@ -50,6 +57,14 @@
   .chip::after{content:' ▾';opacity:.7;}
   .pane.panelHidden .chip::after{content:' ▸';}
   .pane.panelHidden .overlay{display:none;}
+  .flyExtra{
+    position:absolute;bottom:102px;left:12px;z-index:6;
+    display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);
+    background:rgba(10,14,28,.45);border:1px solid var(--line);border-radius:10px;
+    padding:5px 9px;opacity:.55;transition:opacity .2s;backdrop-filter:blur(3px);
+  }
+  .flyExtra:hover{opacity:.95;}
+  .flyExtra button,.flyExtra select{font-size:11.5px;padding:3px 8px;}
   .flyPad{
     position:absolute;bottom:12px;left:12px;z-index:6;
     display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(2,34px);
