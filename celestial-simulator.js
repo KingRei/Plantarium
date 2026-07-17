@@ -352,6 +352,14 @@ class OrbitDrag{
     },{passive:false});
     this.apply();
   }
+  move(f,rgt,dt){ /* 自由飛行:沿視線前後、左右平移(樞紐點跟著移動,
+       縮放不再以太陽為中心);步幅與當前距離成正比,任何尺度皆順手 */
+    const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
+    const rv=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
+    const step=this.r*1.3*dt;
+    this.target.addScaledVector(fwd,f*step).addScaledVector(rv,rgt*step);
+    this.apply();
+  }
   apply(){
     const s=Math.sin(this.phi);
     this.cam.position.set(
@@ -798,8 +806,12 @@ const skyGroup=new THREE.Group(); skyGroup.matrixAutoUpdate=false; sceneR.add(sk
 const starFrameR=new THREE.Group(); skyGroup.add(starFrameR); /* 恆星層:隨歲差旋轉 */
 const constGroupR=new THREE.Group(); starFrameR.add(constGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
-let starsR, eclLineR, showEclLines=true;
+let starsR, eclLineR, eqLineR, showEclLines=true;
 {
+  const eqp=[]; for(let k=0;k<=128;k++){const a=k/128*2*Math.PI;eqp.push(eqUnit(a,0).multiplyScalar(DOME*0.97));}
+  eqLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(eqp),
+    new THREE.LineBasicMaterial({color:0x6FC3D6,transparent:true,opacity:0.28}));
+  skyGroup.add(eqLineR);
   const ecp=[];
   for(let k=0;k<=180;k++){
     const lam=k/180*2*Math.PI;
@@ -1096,7 +1108,7 @@ const UI_STR={
   uiLock:['鎖定','Lock'],
   uiDay:['日夜背景變化','Day–night background'],
   uiText:['文字標籤','Text labels'],
-  uiEclLine:['黃道/白道線','Ecliptic / lunar orbit lines'],
+  uiEclLine:['黃道/白道/赤道線','Ecliptic / lunar / equator lines'],
   uiPhase:['月相與影錐','Moon phase & shadows'],
   uiScale:['正確比例(距離線性)','True scale (linear distances)'],
   uiFootTime:['模擬時刻','Sim time'], uiFootLoc:['觀測地','Observer'],
@@ -1183,6 +1195,7 @@ document.getElementById('hideHorChk').addEventListener('change',e=>{
 document.getElementById('eclLineChk').addEventListener('change',e=>{
   showEclLines=e.target.checked;
   eclLineR.visible=showEclLines;
+  eqLineR.visible=showEclLines;
   if(moonPathLine)moonPathLine.visible=showEclLines;
   moonPathLbl.visible=showEclLines;
 });
@@ -1244,6 +1257,9 @@ function animate(now){
   requestAnimationFrame(animate);
   const dt=Math.min(0.1,(now-lastReal)/1000); lastReal=now;
   if(playing){ simMs+=(+speedSel.value)*dt; }
+  if(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d){
+    ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt);
+  }
 
   const T2=centuries(simMs);
   const psi=psiDeg(simMs)*DEG;
@@ -1464,6 +1480,20 @@ function resize(){
     cam.aspect=w/h; cam.updateProjectionMatrix();
   });
 }
+/* 自由飛行輸入:鍵盤 WASD 與螢幕按鍵(按住移動) */
+const moveKeys={w:false,a:false,s:false,d:false};
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k in moveKeys && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){moveKeys[k]=true;e.preventDefault();}
+});
+window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k in moveKeys)moveKeys[k]=false;});
+window.addEventListener('blur',()=>{for(const k in moveKeys)moveKeys[k]=false;});
+document.querySelectorAll('#flyPad button').forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();moveKeys[k]=true;b.setPointerCapture(e.pointerId);});
+  const off=()=>moveKeys[k]=false;
+  b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);
+});
 window.addEventListener('resize',resize);
 /* 點擊視角標籤展開/收合選項面板;小螢幕預設收合以免遮擋畫面 */
 document.getElementById('chipL').addEventListener('click',()=>paneL.classList.toggle('panelHidden'));
