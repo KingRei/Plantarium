@@ -753,6 +753,10 @@ const rendR=new THREE.WebGLRenderer({antialias:true});
 rendR.setPixelRatio(Math.min(devicePixelRatio,2));
 paneR.appendChild(rendR.domElement);
 const sceneR=new THREE.Scene();
+sceneR.add(new THREE.AmbientLight(0xffffff,0.38));
+const sunDirLight=new THREE.DirectionalLight(0xfff3d8,1.25);
+sunDirLight.position.set(0,1,0);
+sceneR.add(sunDirLight); sceneR.add(sunDirLight.target);
 const BASE_FOV=65;
 const camR=new THREE.PerspectiveCamera(BASE_FOV,1,0.1,600);
 camR.position.set(0,2,0);
@@ -796,9 +800,6 @@ const constGroupR=new THREE.Group(); starFrameR.add(constGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
 let starsR, eclLineR, showEclLines=true;
 {
-  const eqp=[]; for(let k=0;k<=128;k++){const a=k/128*2*Math.PI;eqp.push(eqUnit(a,0).multiplyScalar(DOME*0.97));}
-  skyGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(eqp),
-    new THREE.LineBasicMaterial({color:0x6FC3D6,transparent:true,opacity:0.28})));
   const ecp=[];
   for(let k=0;k<=180;k++){
     const lam=k/180*2*Math.PI;
@@ -827,10 +828,17 @@ let starsR, eclLineR, showEclLines=true;
 const skyBodies=[];
 function addSkyBody(key,getText,colorCss,dotR,glow,boldLbl){
   const grp=new THREE.Group(); skyGroup.add(grp);
-  const mat=new THREE.MeshBasicMaterial({color:new THREE.Color(colorCss),transparent:true});
-  const dot=new THREE.Mesh(new THREE.SphereGeometry(dotR,14,10),mat);
+  /* 行星用受光材質(向陽面亮、背陽面暗,呈現光影質感);太陽自發光 */
+  const col=new THREE.Color(colorCss);
+  const mat=key==='sun'
+    ? new THREE.MeshBasicMaterial({color:col,transparent:true})
+    : new THREE.MeshStandardMaterial({color:col,roughness:0.55,metalness:0.05,
+        emissive:col.clone().multiplyScalar(0.16),transparent:true});
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(dotR,18,14),mat);
   grp.add(dot);
-  if(glow){const g=makeGlow(glow[0],glow[1],glow[2]);grp.add(g);regGlowR(g);}
+  /* 光暈為天體本身的物理泛光:隨場景縮放,不做視角補償
+     (舊版補償導致放大後光暈縮進日盤內、太陽看起來不亮的 bug) */
+  if(glow){const g=makeGlow(glow[0],glow[1],glow[2]);grp.add(g);}
   const lbl=mkLbl('R',getText,colorCss,4.2,boldLbl);
   lbl.position.set(0,dotR+3.2,0); grp.add(lbl);
   skyBodies.push({key,grp,mat,lbl});
@@ -840,7 +848,7 @@ addSkyBody('sun',()=>T('太陽','Sun'),'#ffd75e',2.6,['rgba(255,240,180,1)','rgb
 const coronaSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture([245,242,235],true),
   transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
 coronaSprite.scale.set(13,13,1); coronaSprite.visible=false;
-skyBodies[0].grp.add(coronaSprite); regGlowR(coronaSprite);
+skyBodies[0].grp.add(coronaSprite); /* 日冕貼著日盤,不做視角補償 */
 addSkyBody('moon',()=>T('月亮','Moon'),'#dfe3ea',2.0,['rgba(240,244,255,.9)','rgba(150,170,220,.35)',9],true);
 /* 月相盤:繪製受照面(亮面永遠朝向太陽在天空中的方向) */
 const moonBody=skyBodies.find(b=>b.key==='moon');
@@ -1348,6 +1356,7 @@ function animate(now){
       if(old)old.dispose();
     }
   }
+  sunDirLight.position.copy(sunWorld); /* 行星光影朝向太陽 */
   if(lockMode!=='none'){
     let tgt;
     if(lockMode==='sun')tgt=sunWorld;
