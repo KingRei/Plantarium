@@ -1305,6 +1305,7 @@ const camRgt=new THREE.Vector3(), camUpv=new THREE.Vector3();
 const mhatV=new THREE.Vector3(), qV=new THREE.Vector3();
 
 let lastReal=performance.now(), uiTick=0, flyHeld=0;
+let lstAnchorOn=false, lstAnchorKey='', lstH0=0; /* 錨定恆星時狀態 */
 function animate(now){
   requestAnimationFrame(animate);
   const dt=Math.min(0.1,(now-lastReal)/1000); lastReal=now;
@@ -1395,18 +1396,42 @@ function animate(now){
   }
 
   /* ── 右 ── */
-  /* 抖動根因:1 天/秒以上播放時,周日旋轉(360°/日)每幀跳 6°~60°,
-     時間取樣嚴重混疊;鎖定/置中把它放大成畫面滾轉的頻閃。
-     解法:高速且鎖定/置中時,右視窗逐「日」取樣——凍結周日旋轉,
-     乾淨呈現逐日漂移(太陽沿黃道換季、月球沿白道 13°/日、逆行圈)。 */
-  let msR=simMs;
-  if(playing&&(lockMode!=='none'||trackMode!=='off')&&Math.abs(+speedSel.value)>=86400000){
-    msR=Math.round(simMs/86400000)*86400000;
-  }
-  const TR=centuries(msR), psiR=psiDeg(msR)*DEG;
-  const mgR=moonGeo(TR);
+  /* 滑順優先的抖動修復:高速播放(≥1 天/秒)且鎖定/置中時,
+     周日旋轉(360°/日)的取樣混疊會造成頻閃。捨棄逐日跳格,
+     改用「錨定恆星時」:LST 跟隨錨定天體(日/月/星座)的赤經,
+     加上進入當下凍結的時角差 H0——錨定目標的周日位置連續固定,
+     其餘天體以真實逐日速率平滑流動,任何速度下皆為 60fps 連續動畫。 */
+  const TR=T2, psiR=psi, mgR=mg;
+  starFrameR.quaternion.setFromAxisAngle(ECL_POLE_EQ, psiR);
   const phi=(+latIn.value||0)*DEG;
-  const lst=wrap360(gmstDeg(msR)+(+lonIn.value||0))*DEG;
+  const trueLstDeg=wrap360(gmstDeg(simMs)+(+lonIn.value||0));
+  let lstDeg=trueLstDeg;
+  const anchorActive = playing && Math.abs(+speedSel.value)>=86400000
+        && (lockMode!=='none'||trackMode!=='off');
+  if(anchorActive){
+    let aKey;
+    if(lockMode==='sun') aKey='sun';
+    else if(lockMode==='moon') aKey='moon';
+    else if(lockMode!=='none') aKey=lockMode;                 /* 鎖定星座 */
+    else aKey=trackMode.startsWith('lun')? 'moon' : 'sun';    /* 純軸置中 */
+    let raDeg;
+    if(aKey==='sun'){
+      const e=eclToEq(rotEclZ(geoEcl('sun',TR),psiR));
+      raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
+    }else if(aKey==='moon'){
+      const e=eclToEq(rotEclZ(mgR,psiR));
+      raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
+    }else{
+      const c=tmpVR.copy(CONST_CENTROIDS[aKey.slice(2)]).applyQuaternion(starFrameR.quaternion);
+      raDeg=wrap360(Math.atan2(c.y,c.x)/DEG);
+    }
+    if(!lstAnchorOn||lstAnchorKey!==aKey){ /* 進入(或換錨)當下無縫接軌 */
+      lstAnchorOn=true; lstAnchorKey=aKey;
+      lstH0=wrap360(trueLstDeg-raDeg);
+    }
+    lstDeg=wrap360(raDeg+lstH0);
+  }else{ lstAnchorOn=false; }
+  const lst=lstDeg*DEG;
   const sL=Math.sin(lst),cL=Math.cos(lst),sP=Math.sin(phi),cP=Math.cos(phi);
   skyMat4.set(
     -sL,     cL,     0,   0,
@@ -1414,7 +1439,6 @@ function animate(now){
     cL*sP,   sL*sP, -cP,  0,
     0,0,0,1);
   skyGroup.matrix.copy(skyMat4);
-  starFrameR.quaternion.setFromAxisAngle(ECL_POLE_EQ, psiR);
 
   let sunAlt=-1;
   for(const b of skyBodies){
