@@ -1022,7 +1022,8 @@ function rebuildTrail(ms){
    6. 逆行偵測、通知與年度時刻表
    ══════════════════════════════════════════════════════════ */
 const toastsEl=document.getElementById('toasts');
-function toast(msg,isRetro){
+function toast(msg,isRetro,force){
+  if(!notifyOn&&!force)return; /* 通知關閉時僅放行強制訊息(AI 回覆等) */
   const d=document.createElement('div');
   d.className='toast '+(isRetro?'retro':'pro');
   d.textContent=msg;
@@ -1175,6 +1176,7 @@ const UI_STR={
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
   uiTrailFx:['運動殘影(星軌)','Motion trails (star arcs)'],
+  anchorHint:['⚓ 周日已凍結;日夜/地平線失義','⚓ Diurnal frozen; day/horizon N/A'],
   homeBtn:['⌂ 回到原點','⌂ Reset view'],
   uiObserve:['觀察','Observe'],
   uiLock:['鎖定','Lock'],
@@ -1243,6 +1245,7 @@ const latIn=document.getElementById('lat'), lonIn=document.getElementById('lon')
 const timeRead=document.getElementById('timeReadout'), jdRead=document.getElementById('jdReadout');
 const locRead=document.getElementById('locReadout');
 const retroStat=document.getElementById('retroStatus');
+const anchorHintEl=document.getElementById('anchorHint');
 const zoomChip=document.getElementById('zoomChip');
 
 function pad(n){return String(n).padStart(2,'0');}
@@ -1649,6 +1652,8 @@ function animate(now){
     uiTick=0;
     checkRetroFlips();
     updateEclipse();
+    updateTrailFxRow();
+    anchorHintEl.style.display=(playing&&Math.abs(+speedSel.value)>=86400000&&(lockMode!=='none'||trackMode!=='off'))?'':'none';
     const retro=retroState[trailPlanet];
     retroStat.textContent=pname(trailPlanet)+(retro?T(' ◀ 逆行中',' ◀ Retrograde'):T(' ▶ 順行中',' ▶ Prograde'));
     retroStat.className=retro?'retro':'pro';
@@ -1729,6 +1734,103 @@ document.querySelectorAll('#flyPad button').forEach(b=>{
   const off=()=>moveKeys[k]=false;
   b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);
 });
+/* ── 通知開關 ── */
+let notifyOn=true;
+const notifyBtn=document.getElementById('notifyBtn');
+notifyBtn.addEventListener('click',()=>{
+  notifyOn=!notifyOn;
+  notifyBtn.textContent=notifyOn?'🔔':'🔕';
+});
+
+/* ── AI 語音指令:Groq Whisper ASR → GitHub Models LLM → 控制面板 API ──
+   金鑰以 XOR+Base64 混淆存於原始碼常數(防瀏覽原始碼直讀)。
+   產生密文:開發者主控台執行 encodeKey('你的金鑰'),把輸出貼進下方兩個常數。
+   常數留空時,首次使用會詢問並以同樣混淆格式存入 localStorage(僅本機)。
+   誠實聲明:純前端金鑰對有心人仍可還原,正式公開部署請改走代理伺服器。 */
+const _XK='TianXiangYi-Ray-2026';
+function _xor(str){let o='';for(let i=0;i<str.length;i++)o+=String.fromCharCode(str.charCodeAt(i)^_XK.charCodeAt(i%_XK.length));return o;}
+window.encodeKey=k=>btoa(_xor(k));
+function decodeKey(b){ try{ return b? _xor(atob(b)) : ''; }catch(e){ return ''; } }
+const GROQ_KEY_ENC='';  /* ← encodeKey('gsk_...') 輸出 */
+const GH_TOKEN_ENC='';  /* ← encodeKey('github_pat_...') 輸出 */
+function getKey(enc,lsKey,msg){
+  if(enc)return decodeKey(enc);
+  const ls=localStorage.getItem(lsKey);
+  if(ls)return decodeKey(ls);
+  const k=prompt(msg)||'';
+  if(k)localStorage.setItem(lsKey,window.encodeKey(k));
+  return k;
+}
+const AI_IDS=['dt','speed','lat','lon','langSel','tidalChk','phaseChk','sphereChk','signChk','orbitChk',
+ 'scaleChk','obsSel','retroSel','trailChk','trackSel','lockSel','constChk','eclLineChk','bgStarChk',
+ 'dayChk','textChk','hideHorChk','invChk','trailFxChk','playBtn','nowBtn','homeBtn','retroTableBtn'];
+const AI_SPEC=`Controls. set:{"type":"set","id":ID,"value":V}; click:{"type":"click","id":ID}.
+dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
+Checkbox bool: tidalChk tidal, phaseChk moon-phase&shadows, sphereChk celestial-sphere, signChk zodiac-sectors, orbitChk orbits, scaleChk true-scale, trailChk retro-trail, constChk constellations, eclLineChk ref-lines, bgStarChk stars, dayChk day/night, textChk labels, hideHorChk hide-horizon, invChk invert-drag, trailFxChk motion-trails(only |speed|>=86400000).
+Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座♈|c:金牛座♉|c:雙子座♊|c:巨蟹座♋|c:獅子座♌|c:處女座♍|c:天秤座♎|c:天蠍座♏|c:射手座♐|c:摩羯座♑|c:水瓶座♒|c:雙魚座♓.
+Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.`;
+const AI_SYS='You operate a celestial simulator and answer astronomy questions ONLY. '+
+ 'Refuse anything unrelated to astronomy or simulator control (no actions, brief polite reply). '+
+ 'Output STRICT JSON {"actions":[…],"reply":"…"}. reply: user\'s language, MAX 30 characters, no markdown. '+
+ 'Only use listed ids and legal values. '+AI_SPEC;
+const micBtn=document.getElementById('micBtn');
+let mediaRec=null, micChunks=[];
+micBtn.addEventListener('click',async()=>{
+  if(mediaRec&&mediaRec.state==='recording'){ mediaRec.stop(); return; }
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    micChunks=[]; mediaRec=new MediaRecorder(st);
+    mediaRec.ondataavailable=e=>{ if(e.data.size)micChunks.push(e.data); };
+    mediaRec.onstop=async()=>{
+      st.getTracks().forEach(t=>t.stop());
+      micBtn.classList.remove('rec'); micBtn.classList.add('busy');
+      try{ await handleVoice(new Blob(micChunks,{type:mediaRec.mimeType||'audio/webm'})); }
+      catch(err){ toast('⚠ '+(err&&err.message||err),false,true); }
+      micBtn.classList.remove('busy');
+    };
+    mediaRec.start();
+    micBtn.classList.add('rec');
+    toast(T('🎙 錄音中,再按一次送出','🎙 Recording — tap again to send'),false,true);
+  }catch(e){ toast(T('⚠ 無法取得麥克風','⚠ Microphone unavailable'),false,true); }
+});
+async function handleVoice(blob){
+  const gk=getKey(GROQ_KEY_ENC,'tq_groq',T('輸入 Groq API Key(混淆後僅存本機)','Groq API key (obfuscated, stored locally)'));
+  const hk=getKey(GH_TOKEN_ENC,'tq_gh',T('輸入 GitHub Models Token(混淆後僅存本機)','GitHub Models token (obfuscated, stored locally)'));
+  if(!gk||!hk){ toast(T('⚠ 未設定 API 金鑰','⚠ API keys not set'),false,true); return; }
+  const fd=new FormData();
+  fd.append('file',blob,'voice.webm');
+  fd.append('model','whisper-large-v3');
+  const tr=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',
+    {method:'POST',headers:{Authorization:'Bearer '+gk},body:fd});
+  if(!tr.ok)throw new Error('ASR '+tr.status);
+  const text=((await tr.json()).text||'').trim();
+  if(!text){ toast(T('⚠ 未聽到內容','⚠ Heard nothing'),false,true); return; }
+  toast('🎙 '+text.slice(0,40),false,true);
+  const lr=await fetch('https://models.inference.ai.azure.com/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json',Authorization:'Bearer '+hk},
+    body:JSON.stringify({model:'gpt-4o-mini',temperature:0.2,
+      response_format:{type:'json_object'},
+      messages:[{role:'system',content:AI_SYS},{role:'user',content:text}]})
+  });
+  if(!lr.ok)throw new Error('LLM '+lr.status);
+  let out;
+  try{ out=JSON.parse((await lr.json()).choices[0].message.content); }
+  catch(e){ throw new Error(T('回覆解析失敗','Bad AI response')); }
+  let n=0;
+  if(Array.isArray(out.actions))for(const a of out.actions){
+    if(!a||!AI_IDS.includes(a.id))continue; /* 白名單:僅允許儀表板 API */
+    const el=document.getElementById(a.id); if(!el)continue;
+    if(a.type==='click'){ el.click(); n++; }
+    else if(a.type==='set'){
+      if(el.type==='checkbox')el.checked=(a.value===true||a.value==='true'||a.value===1);
+      else el.value=String(a.value);
+      el.dispatchEvent(new Event('change')); n++;
+    }
+  }
+  toast('✦ '+String(out.reply||'').slice(0,30)+(n?' ('+n+')':''),false,true);
+}
+
 /* 彩蛋:標題懸停(或長按)1.69 秒後浮現作者 */
 {
   const bt=document.getElementById('brandTitle');
