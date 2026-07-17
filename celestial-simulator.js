@@ -739,6 +739,7 @@ let axisLine, poleMark;
   const eclLbl=mkLbl('L',()=>T('黃道','Ecliptic'),'#E3B34C',5,false);
   eclLbl.position.set(SPHERE_R*0.98,6,0); sphereGroup.add(eclLbl);
   buildConstellations(sphereGroup, SPHERE_R*0.97, v=>eqToEclWorld(v), 7.5, 'L', 1.15, false);
+  window._extraGroupL=new THREE.Group(); window._extraGroupL.visible=false; sphereGroup.add(window._extraGroupL);
   const pol=eqToEclWorld(eqUnit(37.95*DEG,89.264*DEG)).multiplyScalar(SPHERE_R*0.98);
   const star=makeGlow('rgba(255,255,255,1)','rgba(160,200,255,.5)',10); star.position.copy(pol);
   sphereGroup.add(star); regGlowL(star);
@@ -905,6 +906,7 @@ let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
   skyGroup.add(window._eclLbl);
   buildConstellations(constGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true);
   buildConstellations(extraGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true, EXTRA_CONST);
+  buildConstellations(window._extraGroupL, SPHERE_R*0.97, v=>eqToEclWorld(v), 7.5, 'L', 1.15, false, EXTRA_CONST);
   const pol=eqUnit(37.95*DEG,89.264*DEG).multiplyScalar(DOME*0.96);
   const star=makeGlow('rgba(255,255,255,1)','rgba(160,200,255,.5)',7); star.position.copy(pol);
   starFrameR.add(star); regGlowR(star);
@@ -974,6 +976,23 @@ for(let i=0;i<ELEM.length;i++){
   if(i===EARTH_IDX)continue;
   addSkyBody(i,()=>pname(i),'#'+ELEM[i].color.toString(16).padStart(6,'0'),1.1,null,false);
 }
+addSkyBody(EARTH_IDX,()=>T('地球','Earth'),'#5B8FD9',1.6,['rgba(160,200,255,.9)','rgba(90,140,220,.35)',7],true); /* 從其他觀察地可見 */
+/* 觀察地:地平視角的觀測者所在天體 */
+let viewBody='earth';
+function eqToEclP(v){ /* 赤道→黃道(純物件版) */
+  const c=Math.cos(OBLQ), s2=Math.sin(OBLQ);
+  return {x:v.x, y:v.y*c+v.z*s2, z:-v.y*s2+v.z*c};
+}
+const OBS_POLE={ /* 自轉極(黃道座標) */
+  moon:{x:0,y:0,z:1},
+  mars:(()=>{const e=eqUnit(317.68*DEG,52.887*DEG);return eqToEclP({x:e.x,y:e.y,z:e.z});})(),
+  titan:(()=>{const e=eqUnit(40.589*DEG,83.537*DEG);return eqToEclP({x:e.x,y:e.y,z:e.z});})()
+};
+const OBS_SPIN={moon:27.321661, mars:1.02595675, titan:15.945}; /* 自轉週期(日);泰坦潮汐鎖定 */
+document.getElementById('viewBodySel').addEventListener('change',e=>{
+  viewBody=e.target.value;
+  needTrailClear=true;
+});
 
 /* 白道:月球軌道面在天球上的路徑(對黃道傾約 5.1°,交點 18.6 年退行一圈) */
 let moonPathLine=null, moonPathEpoch=NaN;
@@ -1186,6 +1205,7 @@ const UI_STR={
   uiSphere:['天球與星座','Celestial sphere & constellations'],
   uiSign:['十二宮區塊(隨歲差)','Zodiac sign sectors (precessing)'],
   uiExtraConst:['其他星座','More constellations'],
+  uiViewBody:['觀察地','Observer'],
   uiOrbit:['軌道線','Orbit lines'],
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],
   uiConst:['星座圖形','Constellation figures'],
@@ -1213,6 +1233,7 @@ const UI_STR={
 const TRACK_STR=[['無置中','No axis'],['黃道軸・日出','Ecliptic · Sunrise'],['黃道軸・日沒','Ecliptic · Sunset'],
   ['白道軸・月出','Lunar orbit · Moonrise'],['白道軸・月沒','Lunar orbit · Moonset']];
 const LOCK_STR=[['無鎖定','No lock'],['太陽','Sun'],['月亮','Moon']];
+const VIEWBODY_STR=[['地球','Earth'],['月球','Moon'],['火星','Mars'],['泰坦','Titan']];
 const SPEED_STR=[
   ['1 小時 / 秒','1 hr / s'],['2 小時 / 秒','2 hr / s'],['6 小時 / 秒','6 hr / s'],
   ['1 天 / 秒','1 day / s'],['3 天 / 秒','3 days / s'],['10 天 / 秒','10 days / s'],
@@ -1234,6 +1255,8 @@ function applyLang(){
     else if(o.value==='moon')o.textContent=T('月球','Moon');
     else o.textContent=pname(+o.value.slice(1));
   });
+  const vb=document.getElementById('viewBodySel');
+  [...vb.options].forEach((o,i)=>o.textContent=VIEWBODY_STR[i][k]);
   const ls=document.getElementById('lockSel');
   [...ls.options].forEach((o,i)=>{
     if(i<LOCK_STR.length)o.textContent=LOCK_STR[i][k];
@@ -1285,7 +1308,10 @@ document.getElementById('textChk').addEventListener('change',e=>{
 });
 document.getElementById('sphereChk').addEventListener('change',e=>sphereGroup.visible=e.target.checked);
 document.getElementById('signChk').addEventListener('change',e=>signBelt.visible=e.target.checked);
-document.getElementById('extraConstChk').addEventListener('change',e=>extraGroupR.visible=e.target.checked);
+document.getElementById('extraConstChk').addEventListener('change',e=>{
+  extraGroupR.visible=e.target.checked;
+  window._extraGroupL.visible=e.target.checked;
+});
 document.getElementById('orbitChk').addEventListener('change',e=>orbitGroup.visible=e.target.checked);
 const camStateN={r:CAM_REF,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
 const camStateT={r:2200,theta:0.55,phi:1.05,tx:0,ty:0,tz:0};
@@ -1514,48 +1540,92 @@ function animate(now){
   const TR=T2, psiR=psi, mgR=mg;
   starFrameR.quaternion.setFromAxisAngle(ECL_POLE_EQ, psiR);
   const phi=(+latIn.value||0)*DEG;
-  const trueLstDeg=wrap360(gmstDeg(simMs)+(+lonIn.value||0));
-  let lstDeg=trueLstDeg;
-  const anchorActive = playing && Math.abs(+speedSel.value)>=86400000
-        && (lockMode!=='none'||trackMode!=='off');
-  if(anchorActive){
-    let aKey;
-    if(lockMode==='sun') aKey='sun';
-    else if(lockMode==='moon') aKey='moon';
-    else if(lockMode!=='none') aKey=lockMode;                 /* 鎖定星座 */
-    else aKey=trackMode.startsWith('lun')? 'moon' : 'sun';    /* 純軸置中 */
-    let raDeg;
-    if(aKey==='sun'){
-      const e=eclToEq(rotEclZ(geoEcl('sun',TR),psiR));
-      raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
-    }else if(aKey==='moon'){
-      const e=eclToEq(rotEclZ(mgR,psiR));
-      raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
-    }else{
-      const c=tmpVR.copy(CONST_CENTROIDS[aKey.slice(2)]).applyQuaternion(starFrameR.quaternion);
-      raDeg=wrap360(Math.atan2(c.y,c.x)/DEG);
-    }
-    if(!lstAnchorOn||lstAnchorKey!==aKey){ /* 進入(或換錨)當下無縫接軌 */
-      lstAnchorOn=true; lstAnchorKey=aKey;
-      lstH0=wrap360(trueLstDeg-raDeg);
-    }
-    lstDeg=wrap360(raDeg+lstH0);
-  }else{ lstAnchorOn=false; }
-  const lst=lstDeg*DEG;
-  const sL=Math.sin(lst),cL=Math.cos(lst),sP=Math.sin(phi),cP=Math.cos(phi);
-  skyMat4.set(
-    -sL,     cL,     0,   0,
-    cL*cP,   sL*cP,  sP,  0,
-    cL*sP,   sL*sP, -cP,  0,
-    0,0,0,1);
+  if(viewBody==='earth'){
+    const trueLstDeg=wrap360(gmstDeg(simMs)+(+lonIn.value||0));
+    let lstDeg=trueLstDeg;
+    const anchorActive = playing && Math.abs(+speedSel.value)>=86400000
+          && (lockMode!=='none'||trackMode!=='off');
+    if(anchorActive){
+      let aKey;
+      if(lockMode==='sun') aKey='sun';
+      else if(lockMode==='moon') aKey='moon';
+      else if(lockMode!=='none') aKey=lockMode;                 /* 鎖定星座 */
+      else aKey=trackMode.startsWith('lun')? 'moon' : 'sun';    /* 純軸置中 */
+      let raDeg;
+      if(aKey==='sun'){
+        const e=eclToEq(rotEclZ(geoEcl('sun',TR),psiR));
+        raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
+      }else if(aKey==='moon'){
+        const e=eclToEq(rotEclZ(mgR,psiR));
+        raDeg=wrap360(Math.atan2(e.y,e.x)/DEG);
+      }else{
+        const c=tmpVR.copy(CONST_CENTROIDS[aKey.slice(2)]).applyQuaternion(starFrameR.quaternion);
+        raDeg=wrap360(Math.atan2(c.y,c.x)/DEG);
+      }
+      if(!lstAnchorOn||lstAnchorKey!==aKey){ /* 進入(或換錨)當下無縫接軌 */
+        lstAnchorOn=true; lstAnchorKey=aKey;
+        lstH0=wrap360(trueLstDeg-raDeg);
+      }
+      lstDeg=wrap360(raDeg+lstH0);
+    }else{ lstAnchorOn=false; }
+    const lst=lstDeg*DEG;
+    const sL=Math.sin(lst),cL=Math.cos(lst),sP=Math.sin(phi),cP=Math.cos(phi);
+    skyMat4.set(
+      -sL,     cL,     0,   0,
+      cL*cP,   sL*cP,  sP,  0,
+      cL*sP,   sL*sP, -cP,  0,
+      0,0,0,1);
+  }else{
+    /* 其他觀察地:以該天體自轉極 P 與均勻自轉角 θ 建構地平座標。
+       節點方向 N=eclZ×P 為經度原點(各天體本初子午線取任意零點),
+       û=觀測者天頂、ê=東、ŝ=ê×û=南;基底轉回赤道座標後填入矩陣。 */
+    lstAnchorOn=false;
+    const P=OBS_POLE[viewBody];
+    const th=2*Math.PI*(days(simMs)/OBS_SPIN[viewBody]) + (+lonIn.value||0)*DEG;
+    let N={x:-P.y,y:P.x,z:0};
+    let nl=Math.hypot(N.x,N.y,N.z);
+    if(nl<1e-6){N={x:1,y:0,z:0};nl=1;}
+    N={x:N.x/nl,y:N.y/nl,z:N.z/nl};
+    const B={x:P.y*N.z-P.z*N.y, y:P.z*N.x-P.x*N.z, z:P.x*N.y-P.y*N.x};
+    const ct=Math.cos(th), st=Math.sin(th), cP2=Math.cos(phi), sP2=Math.sin(phi);
+    const uE={x:cP2*(ct*N.x+st*B.x)+sP2*P.x, y:cP2*(ct*N.y+st*B.y)+sP2*P.y, z:cP2*(ct*N.z+st*B.z)+sP2*P.z};
+    const eE={x:-st*N.x+ct*B.x, y:-st*N.y+ct*B.y, z:-st*N.z+ct*B.z};
+    const sE={x:eE.y*uE.z-eE.z*uE.y, y:eE.z*uE.x-eE.x*uE.z, z:eE.x*uE.y-eE.y*uE.x};
+    const e1=eclToEq(eE), u1=eclToEq(uE), s1=eclToEq(sE);
+    skyMat4.set(
+      e1.x, e1.y, e1.z, 0,
+      u1.x, u1.y, u1.z, 0,
+      s1.x, s1.y, s1.z, 0,
+      0,0,0,1);
+  }
   skyGroup.matrix.copy(skyMat4);
 
   let sunAlt=-1;
+  /* 觀察地在黃道座標中的位置(AU) */
+  const ePos=helio(EARTH_IDX,TR);
+  let obsV;
+  if(viewBody==='earth')obsV=ePos;
+  else if(viewBody==='moon'){
+    const L=Math.hypot(mgR.x,mgR.y,mgR.z)||1, k2=mgR.distKm/AU_KM/L;
+    obsV={x:ePos.x+mgR.x*k2, y:ePos.y+mgR.y*k2, z:ePos.z+mgR.z*k2};
+  }else if(viewBody==='mars')obsV=helio(3,TR);
+  else{ /* 泰坦:土星 + 真實軌道半徑 0.00817 AU、週期 15.945 日 */
+    const sp=helio(5,TR), aT=2*Math.PI*days(simMs)/15.945;
+    obsV={x:sp.x+Math.cos(aT)*0.008168, y:sp.y+Math.sin(aT)*0.008168, z:sp.z};
+  }
+  const hideK={earth:EARTH_IDX, moon:'moon', mars:3, titan:null}[viewBody];
   for(const b of skyBodies){
+    b.grp.visible=(b.key!==hideK);
+    if(!b.grp.visible)continue;
     let g;
-    if(b.key==='sun')g=geoEcl('sun',TR);
-    else if(b.key==='moon')g=mgR;
-    else g=geoEcl(b.key,TR);
+    if(b.key==='sun')g={x:-obsV.x,y:-obsV.y,z:-obsV.z};
+    else if(b.key==='moon'){
+      const L=Math.hypot(mgR.x,mgR.y,mgR.z)||1, k2=mgR.distKm/AU_KM/L;
+      g={x:ePos.x+mgR.x*k2-obsV.x, y:ePos.y+mgR.y*k2-obsV.y, z:ePos.z+mgR.z*k2-obsV.z};
+    }else{
+      const h=helio(b.key,TR);
+      g={x:h.x-obsV.x, y:h.y-obsV.y, z:h.z-obsV.z};
+    }
     const e=eclToEq(rotEclZ(g,psiR));
     const v=new THREE.Vector3(e.x,e.y,e.z).normalize().multiplyScalar(DOME*0.9);
     b.grp.position.copy(v);
@@ -1566,6 +1636,8 @@ function animate(now){
     if(b.key==='sun'){ sunAlt=v.y/(DOME*0.9); sunWorld.copy(v); }
     if(b.key==='moon'){ moonWorld.copy(v); }
   }
+  if(moonPathLine)moonPathLine.visible=showEclLines&&viewBody==='earth';
+  moonPathLbl.visible=showEclLines&&viewBody==='earth';
   /* 月相更新與亮面朝向 */
   {
     const el=Math.abs(wrap180(mgR.lon - geoLon('sun',TR)));
