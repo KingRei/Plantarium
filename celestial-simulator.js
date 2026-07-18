@@ -939,6 +939,7 @@ function addSkyBody(key,getText,colorCss,dotR,glow,boldLbl){
   skyBodies.push({key,grp,mat,lbl,dot,dotR});
 }
 addSkyBody('sun',()=>T('太陽','Sun'),'#ffd75e',2.6,['rgba(255,240,180,1)','rgba(255,190,80,.5)',16],true);
+skyBodies[0].grp.traverse(o=>{o.renderOrder=Math.max(o.renderOrder||0,1);}); /* 太陽層級低於月盤 */
 /* 日食日冕環(右視窗,日食時顯示) */
 const coronaSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture([245,242,235],true),
   transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
@@ -966,6 +967,21 @@ function drawPhase(elDeg){
 }
 const moonSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:drawPhase(90),transparent:true,depthWrite:false}));
 moonSprite.scale.set(4.6,4.6,1);
+moonSprite.renderOrder=5; /* 日食時月盤蓋在日盤之上(月球較近,物理正確) */
+/* 地平視角月食:地球本影盤,置於反日點——食分與方向由真實幾何自然呈現 */
+const umbraSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:(()=>{
+  const N=64,d=new Uint8Array(N*N*4);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const dx=(x+0.5)/N*2-1,dy=(y+0.5)/N*2-1,r=Math.min(1,Math.hypot(dx,dy));
+    const a=r<0.85?1:Math.max(0,(1-r)/0.15); /* 硬核心+軟邊(半影) */
+    const i2=(y*N+x)*4;
+    d[i2]=58;d[i2+1]=12;d[i2+2]=8;d[i2+3]=Math.round(205*a);
+  }
+  const t=new THREE.DataTexture(d,N,N,THREE.RGBAFormat);
+  t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.needsUpdate=true;return t;
+})(),transparent:true,depthWrite:false,depthTest:false}));
+umbraSprite.visible=false; umbraSprite.renderOrder=6;
+skyGroup.add(umbraSprite);
 moonBody.grp.add(moonSprite);
 moonBody.mat=moonSprite.material; /* 沿用地平線下調暗邏輯 */
 let phaseBucket=-1;
@@ -998,7 +1014,14 @@ addSkyBody(EARTH_IDX,()=>T('地球','Earth'),'#5B8FD9',1.6,['rgba(160,200,255,.9
   const axg=new THREE.Group();
   axg.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)); /* 地軸=赤道座標北極 */
   eb.grp.add(axg); axg.add(eb.dot);
+  eb.dot.renderOrder=8; /* 從月球看:地球在太陽之前(遮日圖層正確) */
   window._earthSkySpin=eb.dot;
+  window._earthSkyBody=eb;
+  /* 月食(=月球上看的日食):陽光經地球大氣折射的紅色環——血月的成因 */
+  window._earthRim=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture([230,80,50],true),
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+  window._earthRim.visible=false; window._earthRim.renderOrder=9;
+  eb.grp.add(window._earthRim);
 }
 /* 觀察地:地平視角的觀測者所在天體 */
 let viewBody='earth';
@@ -1035,10 +1058,13 @@ function syncObserverUI(){
   });
   {const mo=[...lockSelEl.options].find(x=>x.value==='moon');
    if(mo)mo.textContent=(viewBody==='moon')? T('地球','Earth') : T('月亮','Moon');}
-  /* 鎖定・土星:僅泰坦 */
+  /* 鎖定・土星:僅泰坦;插在星座選項之前(緊接天體選項之後) */
   setOptPresent(lockSelEl,'sat', viewBody==='titan', ()=>{
     const o=document.createElement('option'); o.value='sat'; o.textContent=T('土星','Saturn'); return o;
   });
+  {const so=[...lockSelEl.options].find(o=>o.value==='sat');
+   if(so){const fc=[...lockSelEl.options].find(o=>o.value.startsWith('c:'));
+     if(fc&&so.nextSibling!==fc)lockSelEl.insertBefore(so,fc);}}
   /* 白道軸置中:僅地球(其他觀察地上月球軌道面不構成天空參考線) */
   const lunPresent=viewBody==='earth';
   if(lunPresent){
@@ -1760,6 +1786,25 @@ function animate(now){
     }
   }
   sunDirLight.position.copy(sunWorld); /* 行星光影朝向太陽 */
+  /* 月食呈現(地球觀察地):本影盤在反日點,半徑=本影角半徑/月角半徑 × 月盤 */
+  const lunEcl=(eclipseState==='lunarT'||eclipseState==='lunarP');
+  if(viewBody==='earth'&&lunEcl){
+    umbraSprite.position.copy(skyBodies[0].grp.position).multiplyScalar(-1);
+    const rmA=Math.atan(1737.4/mgR.distKm);
+    const parA=Math.asin(6378/mgR.distKm);
+    const uA=1.02*(parA-0.00465+0.0000426);
+    umbraSprite.scale.setScalar(moonSprite.scale.x*uA/rmA);
+    umbraSprite.visible=true;
+  }else umbraSprite.visible=false;
+  moonSprite.material.color.setHex(eclipseState==='lunarT'?0xC96A50: eclipseState==='lunarP'?0xE0CFC8 :0xffffff);
+  /* 月球觀察地:月食=地球遮日,地球呈背光暗面+大氣折射紅環 */
+  if(window._earthRim){
+    window._earthRim.visible=(viewBody==='moon'&&lunEcl);
+    if(window._earthRim.visible){
+      const eb2=window._earthSkyBody;
+      window._earthRim.scale.setScalar(eb2.dotR*eb2.dot.scale.x*3.4);
+    }
+  }
   /* 置中滾轉軸:依選項取黃道北極或白道(月球軌道面)法向 */
   const axisPoleW=()=>{
     if(trackMode.startsWith('lun')){
