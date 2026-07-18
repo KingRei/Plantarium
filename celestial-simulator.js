@@ -215,29 +215,29 @@ function formatLunar(ms,langK){
    2. 黃道十二星座:主星 J2000 座標 [RA°, Dec°, 星等] 與連線
    ══════════════════════════════════════════════════════════ */
 const ZODIAC = {
- '牡羊座♈':{en:'Aries',s:[[31.79,23.46,2.0],[28.66,20.81,2.6],[28.38,19.29,3.9],[42.50,27.26,3.6]],
+ '牡羊座':{en:'Aries',s:[[31.79,23.46,2.0],[28.66,20.81,2.6],[28.38,19.29,3.9],[42.50,27.26,3.6]],
    l:[[2,1],[1,0],[0,3]]},
- '金牛座♉':{en:'Taurus',s:[[68.98,16.51,0.9],[81.57,28.61,1.7],[64.95,15.63,3.6],[65.73,17.54,3.8],[67.15,19.18,3.5],[67.17,15.87,3.4],[84.41,21.14,3.0],[60.17,12.49,3.4]],
+ '金牛座':{en:'Taurus',s:[[68.98,16.51,0.9],[81.57,28.61,1.7],[64.95,15.63,3.6],[65.73,17.54,3.8],[67.15,19.18,3.5],[67.17,15.87,3.4],[84.41,21.14,3.0],[60.17,12.49,3.4]],
    l:[[7,2],[2,3],[3,4],[4,1],[2,5],[5,0],[0,6]]},
- '雙子座♊':{en:'Gemini',s:[[113.65,31.89,1.6],[116.33,28.03,1.1],[99.43,16.40,1.9],[100.98,25.13,3.0],[95.74,22.51,2.9],[110.03,21.98,3.5]],
+ '雙子座':{en:'Gemini',s:[[113.65,31.89,1.6],[116.33,28.03,1.1],[99.43,16.40,1.9],[100.98,25.13,3.0],[95.74,22.51,2.9],[110.03,21.98,3.5]],
    l:[[0,3],[3,4],[1,5],[5,2],[0,1]]},
- '巨蟹座♋':{en:'Cancer',s:[[124.13,9.19,3.5],[131.17,18.15,3.9],[130.82,21.47,4.7],[134.62,11.86,4.3],[131.67,28.76,4.0]],
+ '巨蟹座':{en:'Cancer',s:[[124.13,9.19,3.5],[131.17,18.15,3.9],[130.82,21.47,4.7],[134.62,11.86,4.3],[131.67,28.76,4.0]],
    l:[[4,2],[2,1],[1,0],[1,3]]},
- '獅子座♌':{en:'Leo',s:[[152.09,11.97,1.4],[177.26,14.57,2.1],[154.99,19.84,2.0],[168.53,20.52,2.6],[146.46,23.77,3.0],[154.17,23.42,3.4],[151.83,16.76,3.5],[168.56,15.43,3.3],[148.19,26.01,3.9]],
+ '獅子座':{en:'Leo',s:[[152.09,11.97,1.4],[177.26,14.57,2.1],[154.99,19.84,2.0],[168.53,20.52,2.6],[146.46,23.77,3.0],[154.17,23.42,3.4],[151.83,16.76,3.5],[168.56,15.43,3.3],[148.19,26.01,3.9]],
    l:[[0,6],[6,2],[2,5],[5,8],[8,4],[2,3],[3,1],[1,7],[7,0],[7,3]]},
- '處女座♍':{en:'Virgo',s:[[201.30,-11.16,1.0],[190.42,-1.45,2.7],[195.54,10.96,2.8],[193.90,3.40,3.4],[177.67,1.76,3.6],[184.98,-0.67,3.9],[197.49,-5.54,4.4],[203.67,-0.60,3.4]],
+ '處女座':{en:'Virgo',s:[[201.30,-11.16,1.0],[190.42,-1.45,2.7],[195.54,10.96,2.8],[193.90,3.40,3.4],[177.67,1.76,3.6],[184.98,-0.67,3.9],[197.49,-5.54,4.4],[203.67,-0.60,3.4]],
    l:[[4,5],[5,1],[1,3],[3,2],[1,6],[6,0],[0,7],[7,3]]},
- '天秤座♎':{en:'Libra',s:[[222.72,-16.04,2.8],[229.25,-9.38,2.6],[233.88,-14.79,3.9],[226.02,-25.28,3.3]],
+ '天秤座':{en:'Libra',s:[[222.72,-16.04,2.8],[229.25,-9.38,2.6],[233.88,-14.79,3.9],[226.02,-25.28,3.3]],
    l:[[3,0],[0,1],[1,2],[2,0]]},
- '天蠍座♏':{en:'Scorpius',s:[[247.35,-26.43,1.1],[241.36,-19.81,2.6],[240.08,-22.62,2.3],[239.71,-26.11,2.9],[245.30,-25.59,2.9],[248.97,-28.22,2.8],[252.54,-34.29,2.3],[253.08,-38.05,3.0],[253.50,-42.36,3.6],[258.04,-43.24,3.3],[264.33,-43.00,1.9],[266.90,-40.13,3.0],[265.62,-39.03,2.4],[263.40,-37.10,1.6],[262.69,-37.30,2.7]],
+ '天蠍座':{en:'Scorpius',s:[[247.35,-26.43,1.1],[241.36,-19.81,2.6],[240.08,-22.62,2.3],[239.71,-26.11,2.9],[245.30,-25.59,2.9],[248.97,-28.22,2.8],[252.54,-34.29,2.3],[253.08,-38.05,3.0],[253.50,-42.36,3.6],[258.04,-43.24,3.3],[264.33,-43.00,1.9],[266.90,-40.13,3.0],[265.62,-39.03,2.4],[263.40,-37.10,1.6],[262.69,-37.30,2.7]],
    l:[[1,2],[3,2],[2,4],[4,0],[0,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,13],[13,14]]},
- '射手座♐':{en:'Sagittarius',s:[[276.04,-34.38,1.85],[275.25,-29.83,2.7],[276.99,-25.42,2.8],[281.41,-26.99,3.2],[283.82,-26.30,2.05],[286.17,-27.67,3.3],[285.65,-29.88,2.6],[271.45,-30.42,3.0]],
+ '射手座':{en:'Sagittarius',s:[[276.04,-34.38,1.85],[275.25,-29.83,2.7],[276.99,-25.42,2.8],[281.41,-26.99,3.2],[283.82,-26.30,2.05],[286.17,-27.67,3.3],[285.65,-29.88,2.6],[271.45,-30.42,3.0]],
    l:[[7,1],[7,0],[1,3],[3,6],[6,0],[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]]},
- '摩羯座♑':{en:'Capricornus',s:[[304.51,-12.54,3.6],[305.25,-14.78,3.1],[311.52,-25.27,4.1],[312.96,-26.92,4.1],[321.67,-22.41,3.7],[326.76,-16.13,2.9],[325.02,-16.66,3.7],[316.49,-17.23,4.1]],
+ '摩羯座':{en:'Capricornus',s:[[304.51,-12.54,3.6],[305.25,-14.78,3.1],[311.52,-25.27,4.1],[312.96,-26.92,4.1],[321.67,-22.41,3.7],[326.76,-16.13,2.9],[325.02,-16.66,3.7],[316.49,-17.23,4.1]],
    l:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0]]},
- '水瓶座♒':{en:'Aquarius',s:[[331.45,-0.32,2.9],[322.89,-5.57,2.9],[335.41,-1.39,3.8],[337.21,-0.02,3.65],[338.84,-0.12,4.0],[311.92,-9.50,3.8],[334.21,-7.78,4.2],[343.15,-7.58,3.7],[342.40,-13.59,4.0],[343.66,-15.82,3.3]],
+ '水瓶座':{en:'Aquarius',s:[[331.45,-0.32,2.9],[322.89,-5.57,2.9],[335.41,-1.39,3.8],[337.21,-0.02,3.65],[338.84,-0.12,4.0],[311.92,-9.50,3.8],[334.21,-7.78,4.2],[343.15,-7.58,3.7],[342.40,-13.59,4.0],[343.66,-15.82,3.3]],
    l:[[5,1],[1,0],[0,2],[2,3],[3,4],[0,6],[6,7],[7,8],[8,9]]},
- '雙魚座♓':{en:'Pisces',s:[[349.29,3.28,3.7],[351.99,6.38,4.3],[354.99,5.63,4.1],[355.51,1.78,4.5],[351.73,1.26,4.9],[359.83,6.86,4.0],[12.17,7.58,4.4],[18.44,7.89,4.3],[25.36,5.49,4.4],[30.51,2.76,3.8],[26.35,9.16,4.3],[22.87,15.35,3.6],[18.29,24.58,4.7],[17.34,30.09,4.5],[19.87,27.26,4.8]],
+ '雙魚座':{en:'Pisces',s:[[349.29,3.28,3.7],[351.99,6.38,4.3],[354.99,5.63,4.1],[355.51,1.78,4.5],[351.73,1.26,4.9],[359.83,6.86,4.0],[12.17,7.58,4.4],[18.44,7.89,4.3],[25.36,5.49,4.4],[30.51,2.76,3.8],[26.35,9.16,4.3],[22.87,15.35,3.6],[18.29,24.58,4.7],[17.34,30.09,4.5],[19.87,27.26,4.8]],
    l:[[0,1],[1,2],[2,3],[3,4],[4,0],[2,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,14],[14,13]]}
 };
 
@@ -431,10 +431,9 @@ function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stri
     const cen=new THREE.Vector3();
     vs.forEach(v=>cen.add(v));
     cen.normalize().multiplyScalar(radius);
-    const glyph=name.slice(3);
     const getText=c.zh
       ? ()=>T(c.zh, c.en)
-      : (stripGlyph? ()=>T(name.slice(0,3), c.en) : ()=>T(name, c.en+' '+glyph));
+      : ()=>T(name, c.en);
     const lbl=mkLbl(group,getText,'#E3B34C',labelH,false);
     lbl.position.copy(cen); parent.add(lbl);
   }
@@ -779,7 +778,7 @@ signBelt.visible=false; /* 預設關閉 */
   const SIGN_OP =[0.20,0.20,0.20,0.22,0.22,0.22,0.20,0.55,0.22,0.30,0.20,0.20];
   const GLYPH_CSS=['#E0483C','#4CAF6D','#EFD35C','#C9CFD8','#E3B34C','#A9805B',
                    '#9CC7E8','#8F8F9C','#9A6BD0','#A6ACB8','#5BC8E8','#3FA98E'];
-  const glyphs=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+  const glyphs=['牡羊','金牛','雙子','巨蟹','獅子','處女','天秤','天蠍','射手','摩羯','水瓶','雙魚'];
   for(let k=0;k<12;k++){
     const verts=[], idx=[], N=10;
     for(let j=0;j<=N;j++){
@@ -1169,9 +1168,9 @@ function eclipseCheck(ms){
   return null;
 }
 const ECL_STR={
-  lunarT:['🌕 月全食進行中(血月)','🌕 Total lunar eclipse (blood moon)'],
-  lunarP:['🌗 月偏食進行中','🌗 Partial lunar eclipse'],
-  solar:['🌑 日食(地表某處可見)','🌑 Solar eclipse (visible somewhere on Earth)']
+  lunarT:['月全食進行中(血月)','Total lunar eclipse (blood moon)'],
+  lunarP:['月偏食進行中','Partial lunar eclipse'],
+  solar:['日食(地表某處可見)','Solar eclipse (visible somewhere on Earth)']
 };
 function updateEclipse(){
   const st=eclipseCheck(simMs);
@@ -1202,8 +1201,8 @@ function checkRetroFlips(){
       retroState[i]=r;
       if(playing){
         const msg=lang==='zh'
-          ? `☍ ${pname(i)}${r?' 開始逆行':' 結束逆行,恢復順行'} · ${fmtDate(simMs)}`
-          : `☍ ${pname(i)} ${r?'entered retrograde':'resumed prograde motion'} · ${fmtDate(simMs)}`;
+          ? `${pname(i)}${r?' 開始逆行':' 結束逆行,恢復順行'} · ${fmtDate(simMs)}`
+          : `${pname(i)} ${r?'entered retrograde':'resumed prograde motion'} · ${fmtDate(simMs)}`;
         toast(msg,r);
       }
     }
@@ -1276,7 +1275,7 @@ document.getElementById('yNext').addEventListener('click',()=>{tableYear++;rende
 const UI_STR={
   uiTime:['時刻','Time'], uiSpeed:['速度','Speed'], uiLat:['緯度','Lat'], uiLon:['經度','Lon'],
   nowBtn:['現在','Now'],
-  retroTableBtn:['☍ 逆行時刻表','☍ Retrograde Table'],
+  retroTableBtn:['逆行時刻表','Retrograde Table'],
   chipL:['日心視角 · SOLAR SYSTEM','HELIOCENTRIC · SOLAR SYSTEM'],
   chipR:['地平視角 · SKY VIEW','HORIZON · SKY VIEW'],
   uiTidal:['月球潮汐力示意','Lunar tidal forces'],
@@ -1292,9 +1291,9 @@ const UI_STR={
   uiInv:['反向拖曳','Invert drag'],
   uiHideHor:['隱藏地平線','Hide horizon'],
   uiTrailFx:['運動殘影(星軌)','Motion trails (star arcs)'],
-  anchorHint:['⚓ 周日運動已凍結(等效每天同一時刻觀測):日夜循環與昇落暫停;地平線仍是該時刻的真實地平',
-    '⚓ Diurnal motion frozen — like observing at the same clock time each day: day/night & risings pause; the horizon is still the true horizon for that instant'],
-  homeBtn:['⌂ 回到原點','⌂ Reset view'],
+  anchorHint:['＊ 周日運動已凍結(等效每天同一時刻觀測):日夜循環與昇落暫停;地平線仍是該時刻的真實地平',
+    '* Diurnal motion frozen — like observing at the same clock time each day: day/night & risings pause; the horizon is still the true horizon for that instant'],
+  homeBtn:['回到原點','Reset view'],
   uiObserve:['觀察','Observe'],
   uiLock:['鎖定','Lock'],
   uiDay:['日夜背景變化','Day–night background'],
@@ -1305,7 +1304,7 @@ const UI_STR={
   uiFootTime:['模擬時刻','Sim time'], uiFootLoc:['觀測地','Observer'],
   uiHint:['拖曳旋轉 · 滾輪/雙指縮放 · 逆行軌跡:實線=過去 虛線=未來',
           'Drag to rotate · wheel / pinch to zoom · trail: solid = past, dashed = future'],
-  uiModalTitle:['☍ 行星逆行時刻表','☍ Planetary Retrogrades'],
+  uiModalTitle:['行星逆行時刻表','Planetary Retrogrades'],
   thP:['行星','Planet'], thS:['開始逆行','Starts'], thE:['恢復順行','Ends'], thD:['期間','Duration']
 };
 const TRACK_STR=[['無置中','No axis'],['黃道軸・日出','Ecliptic · Sunrise'],['黃道軸・日沒','Ecliptic · Sunset'],
@@ -1316,7 +1315,7 @@ const SPEED_STR=[
   ['1 小時 / 秒','1 hr / s'],['2 小時 / 秒','2 hr / s'],
   ['3 小時 / 秒','3 hr / s'],['6 小時 / 秒','6 hr / s'],
   ['1 天 / 秒','1 day / s'],['3 天 / 秒','3 days / s'],['10 天 / 秒','10 days / s'],
-  ['◀ 倒轉 1 天 / 秒','◀ Reverse 1 day / s']
+  ['倒轉 1 天 / 秒','Reverse 1 day / s']
 ];
 function applyLang(){
   const k=lang==='zh'?0:1;
@@ -1340,7 +1339,7 @@ function applyLang(){
   const ls=document.getElementById('lockSel');
   [...ls.options].forEach((o,i)=>{
     if(i<LOCK_STR.length)o.textContent=LOCK_STR[i][k];
-    else if(o.value!=='sat'){const nm=o.value.slice(2);o.textContent=lang==='zh'? nm.slice(0,3):ZODIAC[nm].en;}
+    else if(o.value!=='sat'){const nm=o.value.slice(2);o.textContent=lang==='zh'? nm:ZODIAC[nm].en;}
   });
   if(typeof viewBody!=='undefined'&&viewBody==='moon'){
     const mo=[...ls.options].find(o=>o.value==='moon');
@@ -1349,7 +1348,7 @@ function applyLang(){
   {const so=[...ls.options].find(o=>o.value==='sat'); if(so)so.textContent=T('土星','Saturn');}
   const rs=document.getElementById('retroSel');
   [...rs.options].forEach(o=>{o.textContent=lang==='zh'?ELEM[+o.value].name:ELEM[+o.value].en;});
-  playBtn.textContent=playing? T('⏸ 暫停','⏸ Pause') : T('▶ 播放','▶ Play');
+  setPlayLabel();
   if(eclipseState)eclipseChip.textContent=ECL_STR[eclipseState][lang==='zh'?0:1];
   lunarCd=NaN; /* 重算農曆顯示語言 */
   relabelAll();
@@ -1383,7 +1382,11 @@ function setDtInput(ms){
 setDtInput(simMs);
 dtInput.addEventListener('change',()=>{const v=new Date(dtInput.value);if(!isNaN(v)){simMs=v.getTime();}});
 document.getElementById('nowBtn').addEventListener('click',()=>{simMs=Date.now();setDtInput(simMs);});
-playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?T('⏸ 暫停','⏸ Pause'):T('▶ 播放','▶ Play');});
+function setPlayLabel(){
+  playBtn.classList.toggle('is-playing',playing);
+  document.getElementById('playLbl').textContent=playing?T('暫停','Pause'):T('播放','Play');
+}
+playBtn.addEventListener('click',()=>{playing=!playing;setPlayLabel();});
 document.getElementById('tidalChk').addEventListener('change',e=>tidalGroup.visible=e.target.checked);
 document.getElementById('phaseChk').addEventListener('change',e=>{
   moonLit.visible=umbraCone.visible=mShadowCone.visible=e.target.checked;
@@ -1466,7 +1469,7 @@ const CONST_CENTROIDS={};
     ZODIAC[name].s.forEach(st=>cen.add(eqUnit(st[0]*DEG,st[1]*DEG)));
     CONST_CENTROIDS[name]=cen.normalize();
     const o=document.createElement('option');
-    o.value='c:'+name; o.textContent=name.slice(0,3);
+    o.value='c:'+name; o.textContent=name;
     ls0.appendChild(o);
   }
 }
@@ -1857,7 +1860,7 @@ function animate(now){
     updateTrailFxRow();
     anchorHintEl.style.display=(playing&&Math.abs(+speedSel.value)>=86400000&&(lockMode!=='none'||trackMode!=='off'))?'':'none';
     const retro=retroState[trailPlanet];
-    retroStat.textContent=pname(trailPlanet)+(retro?T(' ◀ 逆行中',' ◀ Retrograde'):T(' ▶ 順行中',' ▶ Prograde'));
+    retroStat.textContent=pname(trailPlanet)+(retro?T('・逆行中','· Retrograde'):T('・順行中','· Prograde'));
     retroStat.className=retro?'retro':'pro';
     const d=new Date(simMs);
     timeRead.textContent=`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -1941,7 +1944,8 @@ let notifyOn=true;
 const notifyBtn=document.getElementById('notifyBtn');
 notifyBtn.addEventListener('click',()=>{
   notifyOn=!notifyOn;
-  notifyBtn.textContent=notifyOn?'🔔':'🔕';
+  notifyBtn.textContent=notifyOn?T('通知','Notify'):T('靜音','Muted');
+  notifyBtn.classList.toggle('muted',!notifyOn);
 });
 
 /* ── AI 語音指令:Groq Whisper ASR → GitHub Models LLM → 控制面板 API ──
@@ -1969,7 +1973,7 @@ const AI_IDS=['dt','speed','lat','lon','langSel','tidalChk','phaseChk','sphereCh
 const AI_SPEC=`Controls. set:{"type":"set","id":ID,"value":V}; click:{"type":"click","id":ID}.
 dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|10800000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
 Checkbox bool: tidalChk tidal, phaseChk moon-phase&shadows, sphereChk celestial-sphere, signChk zodiac-sectors, orbitChk orbits, scaleChk true-scale, trailChk retro-trail, constChk constellations, eclLineChk ref-lines, bgStarChk stars, dayChk day/night, textChk labels, hideHorChk hide-horizon, invChk invert-drag, trailFxChk motion-trails(only |speed|>=86400000).
-Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座♈|c:金牛座♉|c:雙子座♊|c:巨蟹座♋|c:獅子座♌|c:處女座♍|c:天秤座♎|c:天蠍座♏|c:射手座♐|c:摩羯座♑|c:水瓶座♒|c:雙魚座♓.
+Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座|c:金牛座|c:雙子座|c:巨蟹座|c:獅子座|c:處女座|c:天秤座|c:天蠍座|c:射手座|c:摩羯座|c:水瓶座|c:雙魚座.
 Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.`;
 const AI_SYS='You operate a celestial simulator and answer astronomy questions ONLY. '+
  'Refuse anything unrelated to astronomy or simulator control (no actions, brief polite reply). '+
@@ -1987,13 +1991,13 @@ micBtn.addEventListener('click',async()=>{
       st.getTracks().forEach(t=>t.stop());
       micBtn.classList.remove('rec'); micBtn.classList.add('busy');
       try{ await handleVoice(new Blob(micChunks,{type:mediaRec.mimeType||'audio/webm'})); }
-      catch(err){ toast('⚠ '+(err&&err.message||err),false,true); }
+      catch(err){ toast('! '+(err&&err.message||err),false,true); }
       micBtn.classList.remove('busy');
     };
     mediaRec.start();
     micBtn.classList.add('rec');
-    toast(T('🎙 錄音中,再按一次送出','🎙 Recording — tap again to send'),false,true);
-  }catch(e){ toast(T('⚠ 無法取得麥克風','⚠ Microphone unavailable'),false,true); }
+    toast(T('● 錄音中,再按一次送出','● Recording — tap again to send'),false,true);
+  }catch(e){ toast(T('! 無法取得麥克風','! Microphone unavailable'),false,true); }
 });
 async function handleVoice(blob){
   /* 代理優先:先打同網域 Netlify Functions(金鑰存於伺服器環境變數,
@@ -2007,7 +2011,7 @@ async function handleVoice(blob){
     text=((await r.json()).text||'').trim();
   }catch(e){
     const gk=getKey(GROQ_KEY_ENC,'tq_groq',T('輸入 Groq API Key(混淆後僅存本機)','Groq API key (obfuscated, stored locally)'));
-    if(!gk){ toast(T('⚠ ASR 代理與本機金鑰皆未設定','⚠ No ASR proxy or local key'),false,true); return; }
+    if(!gk){ toast(T('! ASR 代理與本機金鑰皆未設定','! No ASR proxy or local key'),false,true); return; }
     const fd=new FormData();
     fd.append('file',blob,'voice.webm');
     fd.append('model','whisper-large-v3');
@@ -2016,8 +2020,8 @@ async function handleVoice(blob){
     if(!tr.ok)throw new Error('ASR '+tr.status);
     text=((await tr.json()).text||'').trim();
   }
-  if(!text){ toast(T('⚠ 未聽到內容','⚠ Heard nothing'),false,true); return; }
-  toast('🎙 '+text.slice(0,40),false,true);
+  if(!text){ toast(T('! 未聽到內容','! Heard nothing'),false,true); return; }
+  toast('“'+text.slice(0,40)+'”',false,true);
   const payload={model:'gpt-4o-mini',temperature:0.2,
     response_format:{type:'json_object'},
     messages:[{role:'system',content:AI_SYS},{role:'user',content:text}]};
@@ -2029,7 +2033,7 @@ async function handleVoice(blob){
     raw=await r.json();
   }catch(e){
     const hk=getKey(GH_TOKEN_ENC,'tq_gh',T('輸入 GitHub Models Token(混淆後僅存本機)','GitHub Models token (obfuscated, stored locally)'));
-    if(!hk){ toast(T('⚠ LLM 代理與本機金鑰皆未設定','⚠ No LLM proxy or local key'),false,true); return; }
+    if(!hk){ toast(T('! LLM 代理與本機金鑰皆未設定','! No LLM proxy or local key'),false,true); return; }
     const lr=await fetch('https://models.inference.ai.azure.com/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json',Authorization:'Bearer '+hk},
@@ -2051,7 +2055,7 @@ async function handleVoice(blob){
       el.dispatchEvent(new Event('change')); n++;
     }
   }
-  toast('✦ '+String(out.reply||'').slice(0,30)+(n?' ('+n+')':''),false,true);
+  toast(String(out.reply||'').slice(0,30)+(n?' ('+n+')':''),false,true);
 }
 
 /* 彩蛋:標題懸停(或長按)1.69 秒後浮現作者 */

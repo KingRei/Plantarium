@@ -1,4 +1,4 @@
-# Celestial Simulator — Control API Reference
+# StarGZR — Control API Reference
 
 Machine-readable reference for every user-adjustable control. All controls are standard DOM elements; drive them programmatically by setting the value/checked property **and dispatching a `change` event** so internal state updates:
 
@@ -57,7 +57,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 | `retroSel` | select | ELEM index as string: `0` Mercury, `1` Venus, `3` Mars, `4` Jupiter, `5` Saturn, `6` Uranus, `7` Neptune, `8` Pluto | `0` | which planet's retrograde trail is drawn; `#retroStatus` shows prograde/retrograde live |
 | `trailChk` | checkbox | **off** | show the retrograde trail (solid past / dashed future / 30-day dots) |
 | `trackSel` | select | `off`, `ecl_e`, `ecl_w`, `lun_e`, `lun_w` | `off` | **axis lock**: rolls camera so the ecliptic (`ecl_*`) or lunar orbit (`lun_*`) is a straight vertical line through screen center, aimed at its eastern (`_e`) or western (`_w`) horizon crossing; vertical drag slides the view along the axis |
-| `lockSel` | select | `none`, `sun`, `moon`, `c:<zodiacKey>` (12 keys, e.g. `c:牡羊座♈` … `c:雙魚座♓`) | `none` | **target lock**: keeps the body/constellation centroid pinned at exact screen center; combinable with `trackSel` (target centered *and* chosen orbital plane kept vertical) |
+| `lockSel` | select | `none`, `sun`, `moon`, `c:<zodiacKey>` (12 keys, e.g. `c:牡羊座` … `c:雙魚座`) | `none` | **target lock**: keeps the body/constellation centroid pinned at exact screen center; combinable with `trackSel` (target centered *and* chosen orbital plane kept vertical) |
 | `constChk` | checkbox | on | constellation stick figures & names |
 | `eclLineChk` | checkbox | off | ecliptic + lunar-orbit + celestial-equator lines and their labels |
 | `bgStarChk` | checkbox | on | 500 random background stars |

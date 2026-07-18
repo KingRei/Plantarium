@@ -42,7 +42,19 @@
   }
   button:hover{border-color:var(--brass);color:var(--brass);}
   button:focus-visible{outline:2px solid var(--brass);outline-offset:1px;}
-  button.primary{border-color:var(--brass);color:var(--brass);font-weight:600;min-width:64px;}
+  button.primary{border-color:var(--brass);color:var(--brass);font-weight:600;min-width:64px;
+    display:inline-flex;align-items:center;gap:6px;justify-content:center;}
+  /* 播放三角(CSS 邊框繪製,非字元) */
+  .glyph-play{display:inline-block;width:0;height:0;
+    border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:8px solid currentColor;}
+  .primary.is-playing .glyph-play{
+    border:none;width:8px;height:9px;position:relative;}
+  .primary.is-playing .glyph-play::before,
+  .primary.is-playing .glyph-play::after{
+    content:'';position:absolute;top:0;width:2.5px;height:9px;background:currentColor;}
+  .primary.is-playing .glyph-play::before{left:0;}
+  .primary.is-playing .glyph-play::after{right:0;}
+  #notifyBtn.muted{opacity:.55;text-decoration:line-through;}
   #micBtn.rec{border-color:#FF8A6B;color:#FF8A6B;animation:micpulse 1s infinite;}
   #micBtn.busy{border-color:var(--cyan);color:var(--cyan);}
   @keyframes micpulse{50%{opacity:.45;}}
