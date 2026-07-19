@@ -1,8 +1,8 @@
-# 天象儀 · Celestial Simulator
+# 觀星者 · StarGZR
 
 An interactive, dual-view celestial simulator that runs entirely in the browser — no build step, no backend, no external assets beyond the three.js CDN.
 
-![https://celestial-simulator.netlify.app/](Screenshot.jpg)
+![](favicon.svg)
 
 ## Views
 

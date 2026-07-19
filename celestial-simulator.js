@@ -1,4 +1,4 @@
-/* 天象儀 StarGZR — application (requires three.js r128 loaded first) */
+/* 觀星者 StarGZR — application (requires three.js r128 loaded first) */
 'use strict';
 /* ══════════════════════════════════════════════════════════
    1. 天文計算引擎(J2000 近似克卜勒根數 + 低精度月球)
@@ -352,7 +352,29 @@ class OrbitDrag{
         this.phi=Math.max(0.05,Math.min(Math.PI-0.05,this.phi)); this.apply();
       });
     el.addEventListener('wheel',e=>{e.preventDefault();
-      this.r=Math.max(this.min,Math.min(this.max,this.r*(1+e.deltaY*0.001))); this.apply();
+      const r0=this.r;
+      this.r=Math.max(this.min,Math.min(this.max,this.r*(1+e.deltaY*0.001)));
+      if(this.r<r0){
+        /* 放大:以游標指向的點為錨——樞紐點朝游標所指位置靠攏,
+           畫面像地圖一樣往滑鼠處放大,而非永遠鑽向太陽 */
+        const rect=el.getBoundingClientRect();
+        const nx=((e.clientX-rect.left)/rect.width)*2-1;
+        const ny=-((e.clientY-rect.top)/rect.height)*2+1;
+        const dir=new THREE.Vector3(nx,ny,0.5).unproject(this.cam).sub(this.cam.position).normalize();
+        const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
+        const denom=dir.dot(fwd);
+        if(denom>1e-6){
+          const t=new THREE.Vector3().subVectors(this.target,this.cam.position).dot(fwd)/denom;
+          const P=new THREE.Vector3().copy(this.cam.position).addScaledVector(dir,t);
+          this.target.lerp(P,1-this.r/r0);
+        }
+      }else{
+        /* 縮小:漸進拉回原點,拉到最遠時固定以太陽為中心 */
+        const w=Math.max(0,(this.r/this.max-0.45))*0.5;
+        if(w>0)this.target.lerp(new THREE.Vector3(0,0,0),Math.min(0.6,w));
+        if(this.r>=this.max*0.97)this.target.set(0,0,0);
+      }
+      this.apply();
     },{passive:false});
     this.apply();
   }
@@ -360,7 +382,7 @@ class OrbitDrag{
        縮放不再以太陽為中心);步幅與當前距離成正比,任何尺度皆順手 */
     const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
     const rv=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
-    const step=this.r*1.3*dt*(boost||1);
+    const step=this.r*0.5*dt*(boost||1); /* 步幅收斂:精細易控,長按仍可加速 */
     this.target.addScaledVector(fwd,f*step).addScaledVector(rv,rgt*step);
     this.apply();
   }
@@ -1309,6 +1331,7 @@ const UI_STR={
   uiSign:['十二宮區塊(隨歲差)','Zodiac sign sectors (precessing)'],
   uiExtraConst:['其他星座','More constellations'],
   uiViewBody:['觀察地','Observer'],
+  micBtn:['AI語音命令','AI Voice'],
   uiOrbit:['軌道線','Orbit lines'],
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],
   uiConst:['星座圖形','Constellation figures'],
@@ -1349,6 +1372,7 @@ function applyLang(){
     const el=document.getElementById(id);
     if(el)el.textContent=UI_STR[id][k];
   }
+  try{ notifyBtn.textContent=notifyOn?T('通知','Notify'):T('靜音','Muted'); }catch(e){} /* 初次呼叫早於宣告,略過 */
   const sp=document.getElementById('speed');
   [...sp.options].forEach((o,i)=>o.textContent=SPEED_STR[i][k]);
   const ts=document.getElementById('trackSel');
