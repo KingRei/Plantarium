@@ -805,7 +805,6 @@ signBelt.visible=false; /* 預設關閉 */
   const SIGN_OP =[0.20,0.20,0.20,0.22,0.22,0.22,0.20,0.55,0.22,0.30,0.20,0.20];
   const GLYPH_CSS=['#E0483C','#4CAF6D','#EFD35C','#C9CFD8','#E3B34C','#A9805B',
                    '#9CC7E8','#8F8F9C','#9A6BD0','#A6ACB8','#5BC8E8','#3FA98E'];
-  const glyphs=SIGN_ZH;
   for(let k=0;k<12;k++){
     const verts=[], idx=[], N=10;
     for(let j=0;j<=N;j++){
@@ -832,8 +831,7 @@ signBelt.visible=false; /* 預設關閉 */
     signBelt.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bp),
       new THREE.LineBasicMaterial({color:0xE3B34C,transparent:true,opacity:0.35})));
     const lam=(30*k+15)*DEG, cb=Math.cos(13*DEG);
-    const g2=glyphs[k];
-    const lbl=mkLbl('L',()=>g2,GLYPH_CSS[k],9,true);
+    const lbl=mkLbl('L',(idx=>()=>lang==='zh'?SIGN_ZH[idx]:SIGN_EN[idx])(k),GLYPH_CSS[k],9,true);
     lbl.position.set(cb*Math.cos(lam)*R, -Math.sin(13*DEG)*R, -cb*Math.sin(lam)*R);
     signBelt.add(lbl);
   }
@@ -947,7 +945,7 @@ let starsR, eclLineR, eqLineR, signSkyGroup, showEclLines=false; /* 參考線預
       new THREE.LineDashedMaterial({color:0xE3B34C,dashSize:2.2,gapSize:2.2,transparent:true,opacity:0.45}));
     dl.computeLineDistances();
     signSkyGroup.add(dl);
-    const lam2=(30*k+15)*DEG, b2=7*DEG, cb2=Math.cos(b2);
+    const lam2=(30*k+15)*DEG, b2=14*DEG, cb2=Math.cos(b2);
     const e4=eclToEq({x:cb2*Math.cos(lam2),y:cb2*Math.sin(lam2),z:Math.sin(b2)});
     const sl=mkLbl('R',((idx)=>()=>T(SIGN_ZH[idx]+'宮',SIGN_EN[idx]))(k),'#E3B34C',3.4,false);
     sl.position.set(e4.x,e4.y,e4.z).multiplyScalar(DOME*0.965);
