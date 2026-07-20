@@ -28,7 +28,7 @@ An interactive, dual-view celestial simulator that runs entirely in the browser 
 | `celestial-simulator.css` | All styles |
 | `celestial-simulator.js` | Astronomy engine + both scenes (~65 KB, requires three.js r128, loaded from cdnjs) |
 
-Deploy by dropping all three files in one directory (e.g. Netlify). Open `celestial-simulator.html` directly for local use.
+Deploy by dropping all three files in one directory (any static host). The optional AI voice assistant proxies through a Cloudflare Worker + AI Gateway — see the separate proxy package. Open `celestial-simulator.html` directly for local use.
 
 ## Accuracy & validation
 

@@ -23,7 +23,7 @@ Buttons are triggered with `.click()`. Keyboard flight uses real `keydown`/`keyu
 | id | type | values / range | default | effect |
 |---|---|---|---|---|
 | `dt` | datetime-local | any local datetime (full accuracy 1700–2300) | now | sets simulation time |
-| `nowBtn` | button | — | — | jump to current real time |
+| `nowBtn` | button | — | — | jump to current real time (label 切到現在 / Jump to now) |
 | `playBtn` | button | toggles | paused | play/pause; label reflects state |
 | `speed` | select | ms of sim-time per real second: `3600000` (1 h/s), `7200000` (2 h/s, default), `10800000` (3 h/s), `21600000` (6 h/s), `86400000` (1 d/s), `259200000` (3 d/s), `864000000` (10 d/s), `-86400000` (reverse 1 d/s) | `7200000` | playback rate |
 | `lat` | number | −89.9 … 89.9 | 25.03 | observer latitude (°, N positive) |
@@ -31,7 +31,7 @@ Buttons are triggered with `.click()`. Keyboard flight uses real `keydown`/`keyu
 | `retroTableBtn` | button | — | — | open yearly retrograde-interval modal (`yPrev`/`yNext` change year, `mClose` closes) |
 | `langSel` | select | `zh`, `en` | `zh` | UI + all in-scene 3D label language |
 
-Header also hosts `notifyBtn` (🔔/🔕 mute toasts; AI replies always show) and `micBtn` (🎙 voice AI: Groq ASR + GitHub Models LLM via same-origin Netlify Functions proxy `/.netlify/functions/asr|llm`, falling back to locally-stored keys; actions restricted to a 28-id whitelist).
+Header also hosts `notifyBtn` (🔔/🔕 mute toasts; AI replies always show) and `micBtn` (🎙 voice AI: Groq ASR + GitHub Models LLM via a Cloudflare Worker + AI Gateway proxy (set `AI_PROXY_BASE` in the JS), falling back to locally-stored keys; actions restricted to a 28-id whitelist).
 
 Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author tag.
 
@@ -42,7 +42,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 | `tidalChk` | checkbox | off | lunar tidal-force arrows + bulge diagram around Earth |
 | `phaseChk` | checkbox | on | Moon phase hemisphere + Earth umbral cone + Moon shadow cone |
 | `sphereChk` | checkbox | on | celestial sphere: constellations, ecliptic, precession circle, Polaris |
-| `signChk` | checkbox | off | tropical zodiac sign sectors (precess against the stars) |
+| `signChk` | checkbox | off | tropical zodiac sign sectors — colored bands on the orrery sphere **and** dashed cusp lines + sign labels along the ecliptic in the sky view |
 | `orbitChk` | checkbox | on | planet orbit lines |
 | `extraConstChk` | checkbox | off | extra famous constellations in the sky view: Ophiuchus, Summer Triangle, Centaurus, Orion, Ursa Major (Big Dipper), Cassiopeia, Crux, Cygnus, Canis Major, Boötes, Auriga |
 | `scaleChk` | checkbox | off | **true-scale mode**: one linear scale (1 AU = 323 units) for sizes *and* distances; enables fly pad, observe controls, deep zoom (0.002–45 000); camera state is saved/restored per mode |

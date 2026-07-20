@@ -330,7 +330,7 @@ function attachPinch(el, onPinch, onDrag){
       if(lastDist>0){
         const f=d/lastDist;
         /* 死區 + 阻尼:過濾觸控微顫,避免鎖定模式下畫面忽大忽小 */
-        if(Math.abs(f-1)>0.004) onPinch(Math.pow(f,0.85));
+        if(Math.abs(f-1)>0.004) onPinch(Math.pow(f,0.85),(a[0].x+a[1].x)/2,(a[0].y+a[1].y)/2);
       }
       lastDist=d;
     }else if(pts.size===1){
@@ -345,37 +345,40 @@ class OrbitDrag{
     this.cam=cam; this.target=target;
     this.theta=0.55; this.phi=1.05; this.r=r;
     this.min=r*0.06; this.max=r*2.2;
+    this.el=el;
     attachPinch(el,
-      f=>{ this.r=Math.max(this.min,Math.min(this.max,this.r/f)); this.apply(); },
+      (f,mx,my)=>{ this.zoomTo(this.r/f, mx, my); },
       (dx,dy)=>{
         this.theta-=dx*0.006; this.phi-=dy*0.006;
         this.phi=Math.max(0.05,Math.min(Math.PI-0.05,this.phi)); this.apply();
       });
     el.addEventListener('wheel',e=>{e.preventDefault();
-      const r0=this.r;
-      this.r=Math.max(this.min,Math.min(this.max,this.r*(1+e.deltaY*0.001)));
-      if(this.r<r0){
-        /* 放大:以游標指向的點為錨——樞紐點朝游標所指位置靠攏,
-           畫面像地圖一樣往滑鼠處放大,而非永遠鑽向太陽 */
-        const rect=el.getBoundingClientRect();
-        const nx=((e.clientX-rect.left)/rect.width)*2-1;
-        const ny=-((e.clientY-rect.top)/rect.height)*2+1;
-        const dir=new THREE.Vector3(nx,ny,0.5).unproject(this.cam).sub(this.cam.position).normalize();
-        const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
-        const denom=dir.dot(fwd);
-        if(denom>1e-6){
-          const t=new THREE.Vector3().subVectors(this.target,this.cam.position).dot(fwd)/denom;
-          const P=new THREE.Vector3().copy(this.cam.position).addScaledVector(dir,t);
-          this.target.lerp(P,1-this.r/r0);
-        }
-      }else{
-        /* 縮小:漸進拉回原點,拉到最遠時固定以太陽為中心 */
-        const w=Math.max(0,(this.r/this.max-0.45))*0.5;
-        if(w>0)this.target.lerp(new THREE.Vector3(0,0,0),Math.min(0.6,w));
-        if(this.r>=this.max*0.97)this.target.set(0,0,0);
-      }
-      this.apply();
+      this.zoomTo(this.r*(1+e.deltaY*0.001), e.clientX, e.clientY);
     },{passive:false});
+    this.apply();
+  }
+  /* 錨定縮放:放大時朝指定螢幕點(滑鼠游標或雙指中點)靠攏,
+     縮小時漸進回歸原點,拉到最遠固定以太陽為中心。滑鼠與觸控共用同一套。 */
+  zoomTo(newR, clientX, clientY){
+    const r0=this.r;
+    this.r=Math.max(this.min,Math.min(this.max,newR));
+    if(this.r<r0 && clientX!=null && this.el){
+      const rect=this.el.getBoundingClientRect();
+      const nx=((clientX-rect.left)/rect.width)*2-1;
+      const ny=-((clientY-rect.top)/rect.height)*2+1;
+      const dir=new THREE.Vector3(nx,ny,0.5).unproject(this.cam).sub(this.cam.position).normalize();
+      const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
+      const denom=dir.dot(fwd);
+      if(denom>1e-6){
+        const t=new THREE.Vector3().subVectors(this.target,this.cam.position).dot(fwd)/denom;
+        const P=new THREE.Vector3().copy(this.cam.position).addScaledVector(dir,t);
+        this.target.lerp(P,1-this.r/r0);
+      }
+    }else if(this.r>r0){
+      const w=Math.max(0,(this.r/this.max-0.45))*0.5;
+      if(w>0)this.target.lerp(new THREE.Vector3(0,0,0),Math.min(0.6,w));
+      if(this.r>=this.max*0.97)this.target.set(0,0,0);
+    }
     this.apply();
   }
   move(f,rgt,dt,boost){ /* 自由飛行:沿視線前後、左右平移(樞紐點跟著移動,
@@ -789,6 +792,8 @@ let axisLine, poleMark;
 }
 
 /* 黃道十二宮區塊(回歸黃道:固定於當代春分點,隨歲差相對恆星移動) */
+const SIGN_ZH=['牡羊','金牛','雙子','巨蟹','獅子','處女','天秤','天蠍','射手','摩羯','水瓶','雙魚'];
+const SIGN_EN=['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
 const signBelt=new THREE.Group(); sceneL.add(signBelt);
 signBelt.visible=false; /* 預設關閉 */
 {
@@ -800,7 +805,7 @@ signBelt.visible=false; /* 預設關閉 */
   const SIGN_OP =[0.20,0.20,0.20,0.22,0.22,0.22,0.20,0.55,0.22,0.30,0.20,0.20];
   const GLYPH_CSS=['#E0483C','#4CAF6D','#EFD35C','#C9CFD8','#E3B34C','#A9805B',
                    '#9CC7E8','#8F8F9C','#9A6BD0','#A6ACB8','#5BC8E8','#3FA98E'];
-  const glyphs=['牡羊','金牛','雙子','巨蟹','獅子','處女','天秤','天蠍','射手','摩羯','水瓶','雙魚'];
+  const glyphs=SIGN_ZH;
   for(let k=0;k<12;k++){
     const verts=[], idx=[], N=10;
     for(let j=0;j<=N;j++){
@@ -902,7 +907,7 @@ const EXTRA_CONST={
 };
 const extraGroupR=new THREE.Group(); extraGroupR.visible=false; starFrameR.add(extraGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
-let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
+let starsR, eclLineR, eqLineR, signSkyGroup, showEclLines=false; /* 參考線預設關閉 */
 {
   const eqp=[]; for(let k=0;k<=128;k++){const a=k/128*2*Math.PI;eqp.push(eqUnit(a,0).multiplyScalar(DOME*0.97));}
   eqLineR=new THREE.Line(new THREE.BufferGeometry().setFromPoints(eqp),
@@ -928,6 +933,26 @@ let starsR, eclLineR, eqLineR, showEclLines=false; /* 參考線預設關閉 */
    window._eclLbl.position.set(e2.x,e2.y,e2.z).multiplyScalar(DOME*0.97);}
   window._eclLbl.visible=false;
   skyGroup.add(window._eclLbl);
+  /* 十二宮分界(地平視角):以虛線切分黃道、文字標示宮位,不上色塊。
+     宮位為回歸黃道——邊界固定於當代春分點,故與黃道線同一座標系,無需歲差旋轉 */
+  signSkyGroup=new THREE.Group(); signSkyGroup.visible=false; skyGroup.add(signSkyGroup);
+  for(let k=0;k<12;k++){
+    const bp=[];
+    for(let j=0;j<=10;j++){
+      const b=(-11+22*j/10)*DEG, lam=30*k*DEG, cb=Math.cos(b);
+      const e3=eclToEq({x:cb*Math.cos(lam),y:cb*Math.sin(lam),z:Math.sin(b)});
+      bp.push(new THREE.Vector3(e3.x,e3.y,e3.z).multiplyScalar(DOME*0.965));
+    }
+    const dl=new THREE.Line(new THREE.BufferGeometry().setFromPoints(bp),
+      new THREE.LineDashedMaterial({color:0xE3B34C,dashSize:2.2,gapSize:2.2,transparent:true,opacity:0.45}));
+    dl.computeLineDistances();
+    signSkyGroup.add(dl);
+    const lam2=(30*k+15)*DEG, b2=7*DEG, cb2=Math.cos(b2);
+    const e4=eclToEq({x:cb2*Math.cos(lam2),y:cb2*Math.sin(lam2),z:Math.sin(b2)});
+    const sl=mkLbl('R',((idx)=>()=>T(SIGN_ZH[idx]+'宮',SIGN_EN[idx]))(k),'#E3B34C',3.4,false);
+    sl.position.set(e4.x,e4.y,e4.z).multiplyScalar(DOME*0.965);
+    signSkyGroup.add(sl);
+  }
   buildConstellations(constGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true);
   buildConstellations(extraGroupR, DOME*0.95, v=>v.clone(), 4.4, 'R', 1, true, EXTRA_CONST);
   buildConstellations(window._extraGroupL, SPHERE_R*0.97, v=>eqToEclWorld(v), 7.5, 'L', 1.15, false, EXTRA_CONST);
@@ -1339,7 +1364,7 @@ document.getElementById('yNext').addEventListener('click',()=>{tableYear++;rende
    ══════════════════════════════════════════════════════════ */
 const UI_STR={
   uiTime:['時刻','Time'], uiSpeed:['速度','Speed'], uiLat:['緯度','Lat'], uiLon:['經度','Lon'],
-  nowBtn:['現在','Now'],
+  nowBtn:['切到現在','Jump to now'],
   retroTableBtn:['逆行時刻表','Retrograde Table'],
   chipL:['日心視角 · SOLAR SYSTEM','HELIOCENTRIC · SOLAR SYSTEM'],
   chipR:['地平視角 · SKY VIEW','HORIZON · SKY VIEW'],
@@ -1462,7 +1487,10 @@ document.getElementById('textChk').addEventListener('change',e=>{
   for(const L of labelsR){ if(L.getText) L.sp.visible=e.target.checked; }
 });
 document.getElementById('sphereChk').addEventListener('change',e=>sphereGroup.visible=e.target.checked);
-document.getElementById('signChk').addEventListener('change',e=>signBelt.visible=e.target.checked);
+document.getElementById('signChk').addEventListener('change',e=>{
+  signBelt.visible=e.target.checked;                       /* 日心:彩色區塊 */
+  if(signSkyGroup)signSkyGroup.visible=e.target.checked;   /* 地平:虛線分界+文字 */
+});
 document.getElementById('extraConstChk').addEventListener('change',e=>{
   extraGroupR.visible=e.target.checked;
   window._extraGroupL.visible=e.target.checked;
@@ -2047,13 +2075,13 @@ const _XK='TianXiangYi-Ray-2026';
 function _xor(str){let o='';for(let i=0;i<str.length;i++)o+=String.fromCharCode(str.charCodeAt(i)^_XK.charCodeAt(i%_XK.length));return o;}
 window.encodeKey=k=>btoa(_xor(k));
 function decodeKey(b){ try{ return b? _xor(atob(b)) : ''; }catch(e){ return ''; } }
-/* AI 代理端點:留空 = 同網域 Netlify Functions;
-   填入 Cloudflare Worker 網址(如 'https://stargzr-ai.你的帳號.workers.dev')
-   即改走 Cloudflare AI Gateway(集中管理金鑰、速率限制、用量分析) */
+/* AI 代理端點:填入 Cloudflare Worker 網址
+   (如 'https://stargzr-ai.你的帳號.workers.dev'),經 Cloudflare AI Gateway
+   集中管理金鑰、速率限制與用量分析。留空則直接使用本機金鑰模式。 */
 const AI_PROXY_BASE='';
 function proxyUrl(kind){
-  return AI_PROXY_BASE ? AI_PROXY_BASE.replace(/\/$/,'')+'/'+kind
-                       : '/.netlify/functions/'+kind;
+  if(!AI_PROXY_BASE)throw new Error('no proxy');
+  return AI_PROXY_BASE.replace(/\/$/,'')+'/'+kind;
 }
 const GROQ_KEY_ENC='';  /* ← encodeKey('gsk_...') 輸出 */
 const GH_TOKEN_ENC='';  /* ← encodeKey('github_pat_...') 輸出 */

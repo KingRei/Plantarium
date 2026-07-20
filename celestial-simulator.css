@@ -6,6 +6,9 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{height:100%;}
+  /* 關閉文字選取:避免拖曳星圖時誤選文字 */
+  body{-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  input,select,textarea{-webkit-user-select:text;user-select:text;}
   body{
     background:var(--ink); color:var(--paper);
     font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
