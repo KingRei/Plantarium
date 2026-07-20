@@ -1627,7 +1627,9 @@ function animate(now){
   requestAnimationFrame(animate);
   const dt=Math.min(0.1,(now-lastReal)/1000); lastReal=now;
   if(playing){ simMs+=(+speedSel.value)*dt; }
+  updateNav(dt);
   if(trueScale&&(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d)){
+    cancelNav();
     flyHeld+=dt;
     const boost=1+Math.min(6,flyHeld*2.2); /* 長按持續加速,最多 7 倍 */
     ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt,boost);
@@ -2041,6 +2043,94 @@ document.getElementById('homeBtn').addEventListener('click',()=>{
   ctrlL.target.set(0,0,0); ctrlL.r=2200; ctrlL.theta=0.55; ctrlL.phi=1.05; ctrlL.apply();
 });
 
+/* ══════════════════════════════════════════════════════════
+   AI 導覽:雙視窗鏡頭補間(單站 navigate / 多站 tour)
+   左窗(日心)移動樞紐點並拉近;右窗(地平)轉向天體並縮小視野。
+   目標位置每幀即時讀取,故追蹤移動中的行星。
+   ══════════════════════════════════════════════════════════ */
+const EN_BODY=['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune','pluto'];
+const ZH_BODY={'水星':0,'金星':1,'地球':2,'火星':3,'木星':4,'土星':5,'天王星':6,'海王星':7,'冥王星':8};
+function resolveBodyKey(x){
+  if(x==null)return null;
+  const xr=String(x).trim(); if(!xr)return null;
+  const low=xr.toLowerCase();
+  if(/^p[0-8]$/.test(low))return low;
+  if(low==='sun'||xr==='太陽'||xr==='太阳'||xr==='日')return 'sun';
+  if(low==='moon'||xr==='月球'||xr==='月亮'||xr==='月')return 'moon';
+  const ei=EN_BODY.indexOf(low); if(ei>=0)return 'p'+ei;
+  if(xr in ZH_BODY)return 'p'+ZH_BODY[xr];
+  if(low==='outer'||low==='outermost'||xr==='最外圍'||xr==='最外围')return 'p8';
+  return null;
+}
+function navName(key){
+  if(key==='sun')return T('太陽','Sun');
+  if(key==='moon')return T('月球','Moon');
+  const i=+key.slice(1); return T(ELEM[i].name,ELEM[i].en);
+}
+function navL(key){
+  if(key==='sun')return {pos:new THREE.Vector3(0,0,0),rad:5};
+  if(key==='moon')return {pos:moonMesh.position.clone(),rad:0.55*(moonMesh.scale.x||1)};
+  const i=+key.slice(1);
+  return {pos:planetMeshes[i].position.clone(),rad:ELEM[i].size*(planetMeshes[i].scale.x||1)};
+}
+function navFaceR(key){
+  if(viewBody!=='earth')return null;             /* 目前僅支援地球天空導向 */
+  let sb;
+  if(key==='sun')sb=skyBodies.find(b=>b.key==='sun');
+  else if(key==='moon')sb=skyBodies.find(b=>b.key==='moon');
+  else{ const i=+key.slice(1); if(i===EARTH_IDX)return null; sb=skyBodies.find(b=>b.key===i); }
+  if(!sb)return null;
+  const wp=new THREE.Vector3(); sb.grp.getWorldPosition(wp);
+  wp.sub(camR.position); if(wp.lengthSq()<1e-9)return null; wp.normalize();
+  return {yaw:Math.atan2(wp.x,-wp.z),pitch:Math.asin(Math.max(-1,Math.min(1,wp.y))),fov:34};
+}
+let nav=null;
+function cancelNav(){ nav=null; }
+function startNav(keys){
+  keys=(keys||[]).filter(Boolean);
+  if(!keys.length)return 0;
+  observeIdx='none'; obsSel.value='none';
+  lockMode='none'; if(typeof lockSelEl!=='undefined'&&lockSelEl)lockSelEl.value='none';
+  trackMode='off'; if(typeof trackSelEl!=='undefined'&&trackSelEl)trackSelEl.value='off';
+  nav={keys,i:-1}; navStep();
+  return keys.length;
+}
+function navStep(){
+  nav.i++;
+  if(nav.i>=nav.keys.length){ nav=null; return; }
+  nav.key=nav.keys[nav.i];
+  nav.L0={target:ctrlL.target.clone(),r:ctrlL.r,theta:ctrlL.theta,phi:ctrlL.phi};
+  nav.R0={yaw:ctrlR.yaw,pitch:ctrlR.pitch,fov:ctrlR.cam.fov};
+  nav.phase='move'; nav.t=0;
+  nav.dur=nav.i===0?1.1:1.4; nav.hold=0.8;
+  toast(T('導覽 → ','Tour → ')+navName(nav.key),false,true);
+}
+function navEase(x){ x=Math.max(0,Math.min(1,x)); return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2; }
+function updateNav(dt){
+  if(!nav)return;
+  nav.t+=dt;
+  const e=nav.phase==='move'?navEase(nav.t/nav.dur):1;
+  const L=navL(nav.key);
+  const endR=Math.max(ctrlL.min,Math.min(ctrlL.max,L.rad*9));
+  ctrlL.target.copy(nav.L0.target).lerp(L.pos,e);
+  ctrlL.r=nav.L0.r+(endR-nav.L0.r)*e;
+  ctrlL.theta=nav.L0.theta; ctrlL.phi=nav.L0.phi; ctrlL.apply();
+  const R=navFaceR(nav.key);
+  if(R){
+    let dy=R.yaw-nav.R0.yaw; while(dy>Math.PI)dy-=2*Math.PI; while(dy<-Math.PI)dy+=2*Math.PI;
+    ctrlR.yaw=nav.R0.yaw+dy*e;
+    ctrlR.pitch=nav.R0.pitch+(R.pitch-nav.R0.pitch)*e;
+    ctrlR.setFov(nav.R0.fov+(R.fov-nav.R0.fov)*e);
+    ctrlR.apply();
+  }
+  if(nav.phase==='move'&&nav.t>=nav.dur){ nav.phase='hold'; nav.t=0; }
+  else if(nav.phase==='hold'&&nav.t>=nav.hold){ navStep(); }
+}
+[rendL.domElement,rendR.domElement].forEach(el=>{
+  el.addEventListener('pointerdown',cancelNav);
+  el.addEventListener('wheel',()=>cancelNav(),{passive:true});
+});
+
 /* 自由飛行輸入:鍵盤 WASD 與螢幕按鍵(按住移動) */
 const moveKeys={w:false,a:false,s:false,d:false};
 window.addEventListener('keydown',e=>{
@@ -2098,9 +2188,11 @@ const AI_SPEC=`Controls. set:{"type":"set","id":ID,"value":V}; click:{"type":"cl
 dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|10800000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
 Checkbox bool: tidalChk tidal, phaseChk moon-phase&shadows, sphereChk celestial-sphere, signChk zodiac-sectors, orbitChk orbits, scaleChk true-scale, trailChk retro-trail, constChk constellations, eclLineChk ref-lines, bgStarChk stars, dayChk day/night, textChk labels, hideHorChk hide-horizon, invChk invert-drag, trailFxChk motion-trails(only |speed|>=86400000).
 Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座|c:金牛座|c:雙子座|c:巨蟹座|c:獅子座|c:處女座|c:天秤座|c:天蠍座|c:射手座|c:摩羯座|c:水瓶座|c:雙魚座.
-Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.`;
+Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.
+navigate/tour (camera fly — BOTH panes zoom smoothly): {"type":"navigate","target":BODY} single hop, or {"type":"tour","targets":[BODY,...]} multi-stop. BODY=sun|moon|mercury|venus|earth|mars|jupiter|saturn|uranus|neptune|pluto (Chinese names also accepted). Use for: go to / show me / fly to / navigate / 導覽 / tour from X to Y to Z. "outermost planet / 最外圍行星"=pluto.`;
 const AI_SYS='You operate a celestial simulator and answer astronomy questions ONLY. '+
  'Refuse anything unrelated to astronomy or simulator control (no actions, brief polite reply). '+
+ 'The user input comes from speech-to-text and may contain homophones or misheard words; silently correct them to the nearest valid body name or command (per the vocabulary below) before acting. Only if genuinely ambiguous, ask one short clarifying question in reply instead of guessing wildly. '+
  'Output STRICT JSON {"actions":[…],"reply":"…"}. reply: user\'s language, MAX 30 characters, no markdown. '+
  'Only use listed ids and legal values. '+AI_SPEC;
 const micBtn=document.getElementById('micBtn');
@@ -2110,17 +2202,42 @@ micBtn.addEventListener('click',async()=>{
   try{
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     micChunks=[]; mediaRec=new MediaRecorder(st);
+    /* 語音活動偵測(VAD):偵測到人聲後,若停頓約 3 秒即自動送出;
+       全程沒偵測到人聲則不送出——等於只節錄有講話那段。 */
+    let ac=null, vadRAF=0, vadOn=false, spoke=false;
+    const startT=performance.now(); let lastVoice=startT;
+    const SIL_MS=3000, MAX_MS=20000, TH=0.02;
+    try{
+      ac=new (window.AudioContext||window.webkitAudioContext)();
+      const src=ac.createMediaStreamSource(st), an=ac.createAnalyser();
+      an.fftSize=1024; src.connect(an);
+      const buf=new Uint8Array(an.fftSize); vadOn=true;
+      const tick=()=>{
+        if(!mediaRec||mediaRec.state!=='recording')return;
+        an.getByteTimeDomainData(buf);
+        let sum=0; for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128; sum+=v*v;}
+        const rms=Math.sqrt(sum/buf.length), np=performance.now();
+        if(rms>TH){ spoke=true; lastVoice=np; }
+        if((spoke&&np-lastVoice>SIL_MS)||np-startT>MAX_MS){ mediaRec.stop(); return; }
+        vadRAF=requestAnimationFrame(tick);
+      };
+      vadRAF=requestAnimationFrame(tick);
+    }catch(e){ vadOn=false; }
     mediaRec.ondataavailable=e=>{ if(e.data.size)micChunks.push(e.data); };
     mediaRec.onstop=async()=>{
+      if(vadRAF)cancelAnimationFrame(vadRAF);
+      if(ac){ try{ac.close();}catch(_){} }
       st.getTracks().forEach(t=>t.stop());
-      micBtn.classList.remove('rec'); micBtn.classList.add('busy');
+      micBtn.classList.remove('rec');
+      if(vadOn&&!spoke){ toast(T('! 未偵測到語音','! No speech detected'),false,true); return; }
+      micBtn.classList.add('busy');
       try{ await handleVoice(new Blob(micChunks,{type:mediaRec.mimeType||'audio/webm'})); }
       catch(err){ toast('! '+(err&&err.message||err),false,true); }
       micBtn.classList.remove('busy');
     };
     mediaRec.start();
     micBtn.classList.add('rec');
-    toast(T('● 錄音中,再按一次送出','● Recording — tap again to send'),false,true);
+    toast(T('● 錄音中,講完停頓約3秒會自動送出','● Recording — pause ~3s to send'),false,true);
   }catch(e){ toast(T('! 無法取得麥克風','! Microphone unavailable'),false,true); }
 });
 async function handleVoice(blob){
@@ -2170,7 +2287,14 @@ async function handleVoice(blob){
   catch(e){ throw new Error(T('回覆解析失敗','Bad AI response')); }
   let n=0;
   if(Array.isArray(out.actions))for(const a of out.actions){
-    if(!a||!AI_IDS.includes(a.id))continue; /* 白名單:僅允許儀表板 API */
+    if(!a)continue;
+    if(a.type==='navigate'||a.type==='tour'){
+      const list=a.type==='tour'?(a.targets||a.stops||[]):[a.target];
+      const keys=list.map(resolveBodyKey).filter(Boolean);
+      if(keys.length&&startNav(keys))n+=keys.length;
+      continue;
+    }
+    if(!AI_IDS.includes(a.id))continue; /* 白名單:僅允許儀表板 API */
     const el=document.getElementById(a.id); if(!el)continue;
     if(a.type==='click'){ el.click(); n++; }
     else if(a.type==='set'){
