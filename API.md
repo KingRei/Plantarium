@@ -44,7 +44,7 @@ Easter egg: hover or long-press `#brandTitle` for 1.69 s to reveal the author ta
 | `sphereChk` | checkbox | on | celestial sphere: constellations, ecliptic, precession circle, Polaris |
 | `signChk` | checkbox | off | tropical zodiac sign sectors (precess against the stars) |
 | `orbitChk` | checkbox | on | planet orbit lines |
-| `extraConstChk` | checkbox | off | extra famous constellations in the sky view: Ophiuchus, Summer Triangle, Centaurus, Orion, Ursa Major (Big Dipper), Cassiopeia, Crux |
+| `extraConstChk` | checkbox | off | extra famous constellations in the sky view: Ophiuchus, Summer Triangle, Centaurus, Orion, Ursa Major (Big Dipper), Cassiopeia, Crux, Cygnus, Canis Major, Boötes, Auriga |
 | `scaleChk` | checkbox | off | **true-scale mode**: one linear scale (1 AU = 323 units) for sizes *and* distances; enables fly pad, observe controls, deep zoom (0.002–45 000); camera state is saved/restored per mode |
 | `homeBtn` | button (true-scale only) | — | reset true-scale view to origin |
 | `obsSel` | select (true-scale only) | `none` | follow-camera target: `none`, `sun`, `p0`…`p8` (Mercury…Pluto by ELEM index; `p2`=Earth), `moon`; jumps to 10× body radius and tracks the body; WASD flight cancels it |

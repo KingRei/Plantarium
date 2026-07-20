@@ -894,7 +894,11 @@ const EXTRA_CONST={
  'ori':{zh:'獵戶座',en:'Orion',s:[[88.79,7.41,0.5],[78.63,-8.20,0.1],[81.28,6.35,1.6],[86.94,-9.67,2.1],[85.19,-1.94,1.7],[84.05,-1.20,1.7],[83.00,-0.30,2.2],[83.78,9.93,3.4]],l:[[0,2],[2,6],[6,5],[5,4],[4,0],[6,1],[4,3],[0,7],[7,2]]},
  'uma':{zh:'大熊座·北斗',en:'Ursa Major',s:[[165.93,61.75,1.8],[165.46,56.38,2.4],[178.46,53.69,2.4],[183.86,57.03,3.3],[193.51,55.96,1.8],[200.98,54.93,2.2],[206.89,49.31,1.9]],l:[[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[5,6]]},
  'cas':{zh:'仙后座',en:'Cassiopeia',s:[[2.29,59.15,2.3],[10.13,56.54,2.2],[14.18,60.72,2.5],[21.45,60.24,2.7],[28.60,63.67,3.4]],l:[[0,1],[1,2],[2,3],[3,4]]},
- 'cru':{zh:'南十字座',en:'Crux',s:[[186.65,-63.10,0.8],[187.79,-57.11,1.6],[191.93,-59.69,1.3],[183.79,-58.75,2.8]],l:[[0,1],[2,3]]}
+ 'cru':{zh:'南十字座',en:'Crux',s:[[186.65,-63.10,0.8],[187.79,-57.11,1.6],[191.93,-59.69,1.3],[183.79,-58.75,2.8]],l:[[0,1],[2,3]]},
+ 'cyg':{zh:'天鵝座',en:'Cygnus',s:[[310.36,45.28,1.25],[305.56,40.26,2.2],[292.68,27.96,3.1],[296.24,45.13,2.9],[311.55,33.97,2.5]],l:[[0,1],[1,2],[3,1],[1,4]]},
+ 'cma':{zh:'大犬座',en:'Canis Major',s:[[101.29,-16.72,-1.46],[95.67,-17.96,1.98],[106.03,-23.83,3.0],[107.10,-26.39,1.83],[104.66,-28.97,1.5],[111.02,-29.30,2.45],[95.08,-30.06,3.0]],l:[[1,0],[0,2],[2,3],[3,5],[3,4],[4,6]]},
+ 'boo':{zh:'牧夫座',en:'Boötes',s:[[213.92,19.18,-0.05],[221.25,27.07,2.35],[222.20,33.31,3.47],[225.49,40.39,3.5],[218.02,38.31,3.03],[218.02,30.37,3.58],[208.67,18.40,2.68]],l:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,6]]},
+ 'aur':{zh:'御夫座',en:'Auriga',s:[[79.17,46.00,0.08],[89.88,44.95,1.9],[89.93,37.21,2.62],[74.25,33.17,2.69],[75.49,43.82,3.03]],l:[[0,1],[1,2],[2,3],[3,4],[4,0]]}
 };
 const extraGroupR=new THREE.Group(); extraGroupR.visible=false; starFrameR.add(extraGroupR);
 const ECL_POLE_EQ=new THREE.Vector3(0,-Math.sin(OBLQ),Math.cos(OBLQ));
@@ -1104,13 +1108,26 @@ function syncObserverUI(){
   updateLoc();
 }
 /* 觀察者紅點:移到所選觀察地的星體上(左視窗示意) */
+/* 非地球觀察地的自轉群組:+Y 對齊該天體自轉極(世界座標),
+   每幀以 rotation.y = 自轉角 轉動,紅點因此隨自轉繞行 */
+const obsSpinGroups={};
+function getObsSpin(body){
+  if(obsSpinGroups[body])return obsSpinGroups[body];
+  const host={moon:moonMesh, mars:planetMeshes[3], titan:satMoons[4].mesh}[body];
+  const g=new THREE.Group();
+  const P=OBS_POLE[body];
+  const pw=eclToWorld({x:P.x,y:P.y,z:P.z}).normalize(); /* 極軸 → 世界座標 */
+  /* host 本身無旋轉,故可直接以世界極軸定向 */
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),pw);
+  host.add(g);
+  obsSpinGroups[body]=g;
+  return g;
+}
 function updateObsDotParent(){
   const dot=window._obsDot;
   if(dot.parent)dot.parent.remove(dot);
   if(viewBody==='earth'){ earthSpin.add(dot); }
-  else if(viewBody==='moon'){ moonMesh.add(dot); }
-  else if(viewBody==='mars'){ planetMeshes[3].add(dot); }
-  else{ satMoons[4].mesh.add(dot); } /* 泰坦 */
+  else{ getObsSpin(viewBody).add(dot); }
 }
 document.getElementById('viewBodySel').addEventListener('change',e=>{
   viewBody=e.target.value;
@@ -1609,6 +1626,10 @@ function animate(now){
   poleMark.position.copy(axisW).multiplyScalar(SPHERE_R*0.98);
   signBelt.rotation.y=-psi;
   earthSpin.rotation.y=gmstDeg(simMs)*DEG;
+  if(viewBody!=='earth'&&obsSpinGroups[viewBody]){
+    /* 與地平座標所用自轉角相同,紅點位置與天空同步 */
+    obsSpinGroups[viewBody].rotation.y=2*Math.PI*(days(simMs)/OBS_SPIN[viewBody]);
+  }
   if(window._earthSkySpin)window._earthSkySpin.rotation.y=gmstDeg(simMs)*DEG;
   /* 衛星公轉(週期與順/逆行方向真實) */
   {
@@ -2026,6 +2047,14 @@ const _XK='TianXiangYi-Ray-2026';
 function _xor(str){let o='';for(let i=0;i<str.length;i++)o+=String.fromCharCode(str.charCodeAt(i)^_XK.charCodeAt(i%_XK.length));return o;}
 window.encodeKey=k=>btoa(_xor(k));
 function decodeKey(b){ try{ return b? _xor(atob(b)) : ''; }catch(e){ return ''; } }
+/* AI 代理端點:留空 = 同網域 Netlify Functions;
+   填入 Cloudflare Worker 網址(如 'https://stargzr-ai.你的帳號.workers.dev')
+   即改走 Cloudflare AI Gateway(集中管理金鑰、速率限制、用量分析) */
+const AI_PROXY_BASE='';
+function proxyUrl(kind){
+  return AI_PROXY_BASE ? AI_PROXY_BASE.replace(/\/$/,'')+'/'+kind
+                       : '/.netlify/functions/'+kind;
+}
 const GROQ_KEY_ENC='';  /* ← encodeKey('gsk_...') 輸出 */
 const GH_TOKEN_ENC='';  /* ← encodeKey('github_pat_...') 輸出 */
 function getKey(enc,lsKey,msg){
@@ -2074,7 +2103,7 @@ async function handleVoice(blob){
      時,退回本機金鑰模式(prompt 一次、混淆存 localStorage)。 */
   let text='';
   try{
-    const r=await fetch('/.netlify/functions/asr',
+    const r=await fetch(proxyUrl('asr'),
       {method:'POST',headers:{'Content-Type':blob.type||'audio/webm'},body:blob});
     if(!r.ok)throw 0;
     text=((await r.json()).text||'').trim();
@@ -2096,7 +2125,7 @@ async function handleVoice(blob){
     messages:[{role:'system',content:AI_SYS},{role:'user',content:text}]};
   let raw;
   try{
-    const r=await fetch('/.netlify/functions/llm',
+    const r=await fetch(proxyUrl('llm'),
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok)throw 0;
     raw=await r.json();

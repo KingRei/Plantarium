@@ -1,0 +1,15 @@
+name = "stargzr-ai"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+# 你的 Cloudflare 帳號 ID 與 AI Gateway 名稱（非機密，可留在這裡）
+CF_ACCOUNT_ID = "your-account-id"
+CF_GATEWAY_ID = "stargzr"
+# 只允許你的網站呼叫（逗號分隔；設 * 表示不限，不建議）
+ALLOWED_ORIGINS = "https://your-site.netlify.app,http://localhost:8888"
+
+# 機密以 wrangler secret 設定，不要寫在這個檔案：
+#   npx wrangler secret put CF_AIG_TOKEN
+#   npx wrangler secret put GROQ_API_KEY      （若用 BYOK 可略）
+#   npx wrangler secret put GH_MODELS_TOKEN   （若用 BYOK 可略）
