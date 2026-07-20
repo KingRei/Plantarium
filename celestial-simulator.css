@@ -149,8 +149,9 @@
     display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;
   }
   .toast{
-    background:rgba(13,18,38,.94);border:1px solid var(--line);border-radius:10px;
+    background:rgba(13,18,38,.66);border:1px solid var(--line);border-radius:10px;
     padding:9px 18px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.5);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
     animation:tin .25s ease-out;
   }
   .toast.retro{border-color:#FF8A6B;color:#FFB59F;}
@@ -196,5 +197,15 @@
     input[type="number"]{width:58px;}
     button.primary{min-width:48px;}
     footer{font-size:10px;padding:4px 10px;}
+    /* AI 語音命令鍵靠最右(視為特別按鍵) */
+    header .ctl:last-child{margin-left:auto;}
+    #micBtn{margin-left:auto;}
+    /* 通知移離最上排、靠右、半透明,避免按 AI 語音時被擋住 */
+    #toasts{
+      top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 52px);
+      left:auto;right:10px;transform:none;
+      align-items:flex-end;max-width:80vw;
+    }
+    .toast{font-size:11.5px;padding:7px 12px;}
   }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }
