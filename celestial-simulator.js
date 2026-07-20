@@ -1363,6 +1363,7 @@ document.getElementById('yNext').addEventListener('click',()=>{tableYear++;rende
 const UI_STR={
   uiTime:['時刻','Time'], uiSpeed:['速度','Speed'], uiLat:['緯度','Lat'], uiLon:['經度','Lon'],
   nowBtn:['切到現在','Jump to now'],
+  resetViewBtn:['回初始位置','Initial view'],
   retroTableBtn:['逆行時刻表','Retrograde Table'],
   chipL:['日心視角 · SOLAR SYSTEM','HELIOCENTRIC · SOLAR SYSTEM'],
   chipR:['地平視角 · SKY VIEW','HORIZON · SKY VIEW'],
@@ -1371,6 +1372,7 @@ const UI_STR={
   uiSign:['十二宮區塊(隨歲差)','Zodiac sign sectors (precessing)'],
   uiExtraConst:['其他星座','More constellations'],
   uiViewBody:['觀察地','Observer'],
+  micHint:['試試:幫我從最內圍開始導覽九顆行星','Try: "Tour all nine planets from the innermost"'],
   micBtn:['AI語音命令','AI Voice'],
   uiOrbit:['軌道線','Orbit lines'],
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],
@@ -2042,6 +2044,17 @@ document.getElementById('homeBtn').addEventListener('click',()=>{
   observeIdx='none'; obsSel.value='none';
   ctrlL.target.set(0,0,0); ctrlL.r=2200; ctrlL.theta=0.55; ctrlL.phi=1.05; ctrlL.apply();
 });
+/* 回初始位置:兩窗都回到開場狀態——地平視角面向正東、地平線之上;日心視角預設樞紐與距離 */
+function resetInitialView(){
+  cancelNav();
+  observeIdx='none'; if(typeof obsSel!=='undefined'&&obsSel)obsSel.value='none';
+  lockMode='none'; if(typeof lockSelEl!=='undefined'&&lockSelEl)lockSelEl.value='none';
+  trackMode='off'; if(typeof trackSelEl!=='undefined'&&trackSelEl)trackSelEl.value='off';
+  ctrlL.target.set(0,0,0); ctrlL.r=CAM_REF; ctrlL.theta=0.55; ctrlL.phi=1.05; ctrlL.apply();
+  camR.up.set(0,1,0); ctrlR.setFov(93.4); ctrlR.yaw=Math.PI/2; ctrlR.pitch=0.35; ctrlR.apply();
+  toast(T('回到初始視角','Reset to initial view'),false,true);
+}
+document.getElementById('resetViewBtn').addEventListener('click',resetInitialView);
 
 /* ══════════════════════════════════════════════════════════
    AI 導覽:雙視窗鏡頭補間(單站 navigate / 多站 tour)
@@ -2050,6 +2063,12 @@ document.getElementById('homeBtn').addEventListener('click',()=>{
    ══════════════════════════════════════════════════════════ */
 const EN_BODY=['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune','pluto'];
 const ZH_BODY={'水星':0,'金星':1,'地球':2,'火星':3,'木星':4,'土星':5,'天王星':6,'海王星':7,'冥王星':8};
+const CONST_INDEX={};
+(function(){
+  const add=(a,nm)=>{ if(a)CONST_INDEX[String(a).trim().toLowerCase()]=nm; };
+  for(const nm in ZODIAC){ add(nm,nm); add(nm.replace('座',''),nm); add(ZODIAC[nm].en,nm); }
+  for(const nm in EXTRA_CONST){ add(nm,nm); add(EXTRA_CONST[nm].zh,nm); if(EXTRA_CONST[nm].zh)add(EXTRA_CONST[nm].zh.replace('座',''),nm); add(EXTRA_CONST[nm].en,nm); }
+})();
 function resolveBodyKey(x){
   if(x==null)return null;
   const xr=String(x).trim(); if(!xr)return null;
@@ -2060,21 +2079,48 @@ function resolveBodyKey(x){
   const ei=EN_BODY.indexOf(low); if(ei>=0)return 'p'+ei;
   if(xr in ZH_BODY)return 'p'+ZH_BODY[xr];
   if(low==='outer'||low==='outermost'||xr==='最外圍'||xr==='最外围')return 'p8';
+  if(low==='inner'||low==='innermost'||xr==='最內圍'||xr==='最内围')return 'p0';
+  const cc=CONST_INDEX[low]; if(cc)return 'c:'+cc;
   return null;
 }
 function navName(key){
+  if(typeof key==='string'&&key.startsWith('c:')){ const nm=key.slice(2); const c=ZODIAC[nm]||EXTRA_CONST[nm]; return c?T(c.zh||nm,c.en):nm; }
   if(key==='sun')return T('太陽','Sun');
   if(key==='moon')return T('月球','Moon');
   const i=+key.slice(1); return T(ELEM[i].name,ELEM[i].en);
 }
+function constDirEcl(nm){
+  let u=CONST_CENTROIDS[nm];
+  if(!u){ const c=ZODIAC[nm]||EXTRA_CONST[nm]; if(!c)return null;
+    const cc=new THREE.Vector3(); c.s.forEach(st=>cc.add(eqUnit(st[0]*DEG,st[1]*DEG))); u=cc.normalize(); }
+  return eqToEclWorld(u.clone()).normalize();   /* 星座質心 → 日心世界方向 */
+}
+/* 回傳左窗(日心)目標鏡頭狀態:行星=移動樞紐點並拉近;星座=繞回原點並把該星座在天球上置中 */
 function navL(key){
-  if(key==='sun')return {pos:new THREE.Vector3(0,0,0),rad:5};
-  if(key==='moon')return {pos:moonMesh.position.clone(),rad:0.55*(moonMesh.scale.x||1)};
-  const i=+key.slice(1);
-  return {pos:planetMeshes[i].position.clone(),rad:ELEM[i].size*(planetMeshes[i].scale.x||1)};
+  if(typeof key==='string'&&key.startsWith('c:')){
+    const g=constDirEcl(key.slice(2)); if(!g)return null;
+    const Rw=SPHERE_R*(sphereGroup.scale.x||1);
+    const phi=Math.max(0.05,Math.min(Math.PI-0.05,Math.acos(Math.max(-1,Math.min(1,-g.y)))));
+    const theta=Math.atan2(-g.x,-g.z);
+    return {target:new THREE.Vector3(0,0,0),r:Math.max(ctrlL.min,Rw*0.72),theta,phi};
+  }
+  let pos,rad;
+  if(key==='sun'){ pos=new THREE.Vector3(0,0,0); rad=5; }
+  else if(key==='moon'){ pos=moonMesh.position.clone(); rad=0.55*(moonMesh.scale.x||1); }
+  else { const i=+key.slice(1); pos=planetMeshes[i].position.clone(); rad=ELEM[i].size*(planetMeshes[i].scale.x||1); }
+  return {target:pos,r:Math.max(ctrlL.min,Math.min(ctrlL.max,rad*9))};
 }
 function navFaceR(key){
-  if(viewBody!=='earth')return null;             /* 目前僅支援地球天空導向 */
+  if(typeof key==='string'&&key.startsWith('c:')){
+    const nm=key.slice(2);
+    let u=CONST_CENTROIDS[nm];
+    if(!u){ const c=ZODIAC[nm]||EXTRA_CONST[nm]; if(!c)return null;
+      const cc=new THREE.Vector3(); c.s.forEach(st=>cc.add(eqUnit(st[0]*DEG,st[1]*DEG))); u=cc.normalize(); }
+    const d=u.clone().applyQuaternion(starFrameR.quaternion).applyMatrix4(skyMat4);
+    if(d.lengthSq()<1e-9)return null; d.normalize();
+    return {yaw:Math.atan2(d.x,-d.z),pitch:Math.asin(Math.max(-1,Math.min(1,d.y))),fov:40};
+  }
+  if(viewBody!=='earth')return null;             /* 行星/日月天空導向:目前僅地球 */
   let sb;
   if(key==='sun')sb=skyBodies.find(b=>b.key==='sun');
   else if(key==='moon')sb=skyBodies.find(b=>b.key==='moon');
@@ -2092,6 +2138,7 @@ function startNav(keys){
   observeIdx='none'; obsSel.value='none';
   lockMode='none'; if(typeof lockSelEl!=='undefined'&&lockSelEl)lockSelEl.value='none';
   trackMode='off'; if(typeof trackSelEl!=='undefined'&&trackSelEl)trackSelEl.value='off';
+  if(playing){ playing=false; setPlayLabel(); toast(T('導覽期間暫停播放','Playback paused during tour'),false,true); }
   nav={keys,i:-1}; navStep();
   return keys.length;
 }
@@ -2099,6 +2146,9 @@ function navStep(){
   nav.i++;
   if(nav.i>=nav.keys.length){ nav=null; return; }
   nav.key=nav.keys[nav.i];
+  if(typeof nav.key==='string'&&nav.key.startsWith('c:')){   /* 星座站:確保左天球與兩側星座圖形可見 */
+    ['sphereChk','constChk'].forEach(id=>{const el=document.getElementById(id); if(el&&!el.checked){el.checked=true; el.dispatchEvent(new Event('change'));}});
+  }
   nav.L0={target:ctrlL.target.clone(),r:ctrlL.r,theta:ctrlL.theta,phi:ctrlL.phi};
   nav.R0={yaw:ctrlR.yaw,pitch:ctrlR.pitch,fov:ctrlR.cam.fov};
   nav.phase='move'; nav.t=0;
@@ -2111,10 +2161,15 @@ function updateNav(dt){
   nav.t+=dt;
   const e=nav.phase==='move'?navEase(nav.t/nav.dur):1;
   const L=navL(nav.key);
-  const endR=Math.max(ctrlL.min,Math.min(ctrlL.max,L.rad*9));
-  ctrlL.target.copy(nav.L0.target).lerp(L.pos,e);
-  ctrlL.r=nav.L0.r+(endR-nav.L0.r)*e;
-  ctrlL.theta=nav.L0.theta; ctrlL.phi=nav.L0.phi; ctrlL.apply();
+  if(L){
+    ctrlL.target.copy(nav.L0.target).lerp(L.target,e);
+    ctrlL.r=nav.L0.r+(L.r-nav.L0.r)*e;
+    const th=(L.theta!=null)?L.theta:nav.L0.theta, ph=(L.phi!=null)?L.phi:nav.L0.phi;
+    let dth=th-nav.L0.theta; while(dth>Math.PI)dth-=2*Math.PI; while(dth<-Math.PI)dth+=2*Math.PI;
+    ctrlL.theta=nav.L0.theta+dth*e;
+    ctrlL.phi=nav.L0.phi+(ph-nav.L0.phi)*e;
+    ctrlL.apply();
+  }
   const R=navFaceR(nav.key);
   if(R){
     let dy=R.yaw-nav.R0.yaw; while(dy>Math.PI)dy-=2*Math.PI; while(dy<-Math.PI)dy+=2*Math.PI;
@@ -2183,19 +2238,20 @@ function getKey(enc,lsKey,msg){
 }
 const AI_IDS=['dt','speed','lat','lon','langSel','tidalChk','phaseChk','sphereChk','signChk','orbitChk',
  'scaleChk','obsSel','retroSel','trailChk','trackSel','lockSel','constChk','eclLineChk','bgStarChk',
- 'dayChk','textChk','hideHorChk','invChk','trailFxChk','playBtn','nowBtn','homeBtn','retroTableBtn'];
+ 'dayChk','textChk','hideHorChk','invChk','trailFxChk','playBtn','nowBtn','resetViewBtn','homeBtn','retroTableBtn'];
 const AI_SPEC=`Controls. set:{"type":"set","id":ID,"value":V}; click:{"type":"click","id":ID}.
 dt "YYYY-MM-DDTHH:MM"; speed 3600000|7200000|10800000|21600000|86400000|259200000|864000000|-86400000 (ms sim per s); lat -89.9..89.9; lon -180..180; langSel zh|en.
 Checkbox bool: tidalChk tidal, phaseChk moon-phase&shadows, sphereChk celestial-sphere, signChk zodiac-sectors, orbitChk orbits, scaleChk true-scale, trailChk retro-trail, constChk constellations, eclLineChk ref-lines, bgStarChk stars, dayChk day/night, textChk labels, hideHorChk hide-horizon, invChk invert-drag, trailFxChk motion-trails(only |speed|>=86400000).
 Select: obsSel none|sun|p0..p8|moon (follow, true-scale only); retroSel 0|1|3|4|5|6|7|8 = Mercury..Pluto; trackSel off|ecl_e|ecl_w|lun_e|lun_w axis-lock; lockSel none|sun|moon|c:牡羊座|c:金牛座|c:雙子座|c:巨蟹座|c:獅子座|c:處女座|c:天秤座|c:天蠍座|c:射手座|c:摩羯座|c:水瓶座|c:雙魚座.
-Click: playBtn toggle-play, nowBtn now, homeBtn reset-view, retroTableBtn retrograde-table.
-navigate/tour (camera fly — BOTH panes zoom smoothly): {"type":"navigate","target":BODY} single hop, or {"type":"tour","targets":[BODY,...]} multi-stop. BODY=sun|moon|mercury|venus|earth|mars|jupiter|saturn|uranus|neptune|pluto (Chinese names also accepted). Use for: go to / show me / fly to / navigate / 導覽 / tour from X to Y to Z. "outermost planet / 最外圍行星"=pluto.`;
+Click: playBtn toggle-play, nowBtn now, resetViewBtn initial-view (reset BOTH panes to opening state: sky faces due east above horizon, heliocentric default framing; clears any follow/lock/tour), homeBtn reset-view, retroTableBtn retrograde-table.
+navigate/tour (camera fly — BOTH panes zoom smoothly): {"type":"navigate","target":BODY} single hop, or {"type":"tour","targets":[BODY,...]} multi-stop. BODY=sun|moon|mercury|venus|earth|mars|jupiter|saturn|uranus|neptune|pluto (Chinese names also accepted). Use for: go to / show me / fly to / navigate / 導覽 / tour from X to Y to Z. "outermost planet / 最外圍行星"=pluto, "innermost / 最內圍"=mercury, "nine planets / 九顆行星"=mercury..pluto in order. BODY may also be a CONSTELLATION name (zodiac or listed), e.g. 牡羊座/Aries, 獅子座/Leo, 天蠍座/Scorpius (zh or en) — constellations turn only the sky pane.`;
 const AI_SYS='You operate a celestial simulator and answer astronomy questions ONLY. '+
  'Refuse anything unrelated to astronomy or simulator control (no actions, brief polite reply). '+
  'The user input comes from speech-to-text and may contain homophones or misheard words; silently correct them to the nearest valid body name or command (per the vocabulary below) before acting. Only if genuinely ambiguous, ask one short clarifying question in reply instead of guessing wildly. '+
  'Output STRICT JSON {"actions":[…],"reply":"…"}. reply: user\'s language, MAX 30 characters, no markdown. '+
  'Only use listed ids and legal values. '+AI_SPEC;
 const micBtn=document.getElementById('micBtn');
+const micWrap=document.getElementById('micWrap');
 let mediaRec=null, micChunks=[];
 micBtn.addEventListener('click',async()=>{
   if(mediaRec&&mediaRec.state==='recording'){ mediaRec.stop(); return; }
@@ -2229,14 +2285,15 @@ micBtn.addEventListener('click',async()=>{
       if(ac){ try{ac.close();}catch(_){} }
       st.getTracks().forEach(t=>t.stop());
       micBtn.classList.remove('rec');
-      if(vadOn&&!spoke){ toast(T('! 未偵測到語音','! No speech detected'),false,true); return; }
+      if(vadOn&&!spoke){ if(micWrap)micWrap.classList.remove('recording'); toast(T('! 未偵測到語音','! No speech detected'),false,true); return; }
       micBtn.classList.add('busy');
       try{ await handleVoice(new Blob(micChunks,{type:mediaRec.mimeType||'audio/webm'})); }
       catch(err){ toast('! '+(err&&err.message||err),false,true); }
-      micBtn.classList.remove('busy');
+      micBtn.classList.remove('busy'); if(micWrap)micWrap.classList.remove('recording');
     };
     mediaRec.start();
     micBtn.classList.add('rec');
+    if(micWrap){ micWrap.classList.add('recording'); micWrap.classList.add('hintseen'); }
     toast(T('● 錄音中,講完停頓約3秒會自動送出','● Recording — pause ~3s to send'),false,true);
   }catch(e){ toast(T('! 無法取得麥克風','! Microphone unavailable'),false,true); }
 });
