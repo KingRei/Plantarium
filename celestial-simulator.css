@@ -217,6 +217,9 @@
     /* 手機:通知避開較矮的底列 + 安全區,字級縮小 */
     #toasts{bottom:calc(env(safe-area-inset-bottom,0px) + 46px);right:8px;max-width:82vw;}
     .toast{font-size:11.5px;padding:7px 12px;}
-    #micHint{display:none;}   /* 手機:例句提示隱藏以免遮擋 */
+    #micHint{           /* 手機:提示改放按鈕下方,避免橫向被切掉 */
+      right:0;left:auto;top:100%;transform:none;margin:6px 0 0;
+      white-space:normal;max-width:62vw;text-align:right;font-size:10.5px;animation:none;
+    }
   }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }

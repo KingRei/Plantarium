@@ -440,10 +440,16 @@ class LookDrag{
       this.cam.position.z - cp*Math.cos(this.yaw));
   }
 }
+/* 星座連線註冊表:同名跨兩窗;導覽到該星座時把連線點亮 */
+const CONST_LINES={};
+function highlightConst(nm){
+  for(const k in CONST_LINES){ const on=(k===nm);
+    CONST_LINES[k].forEach(e=>{ e.mat.color.setHex(on?0xFFE08A:0x6a7db3); e.mat.opacity=on?1:0.5; }); }
+}
+function clearConstHighlight(){ highlightConst(null); }
 function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stripGlyph, dataset){
   const DATA=dataset||ZODIAC;
   const buckets=[[],[],[],[]];
-  const linePts=[];
   for(const name in DATA){
     const c=DATA[name];
     const vs=c.s.map(st=>toVec(eqUnit(st[0]*DEG,st[1]*DEG)).multiplyScalar(radius));
@@ -452,7 +458,12 @@ function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stri
       const b=m<2?0:m<3?1:m<4?2:3;
       buckets[b].push(vs[i].x,vs[i].y,vs[i].z);
     });
-    c.l.forEach(pair=>{ linePts.push(vs[pair[0]],vs[pair[1]]); });
+    if(c.l&&c.l.length){
+      const cpts=[]; c.l.forEach(pair=>cpts.push(vs[pair[0]],vs[pair[1]]));
+      const cmat=new THREE.LineBasicMaterial({color:0x6a7db3,transparent:true,opacity:0.5});
+      parent.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(cpts),cmat));
+      (CONST_LINES[name]=CONST_LINES[name]||[]).push({mat:cmat});
+    }
     const cen=new THREE.Vector3();
     vs.forEach(v=>cen.add(v));
     cen.normalize().multiplyScalar(radius);
@@ -470,9 +481,6 @@ function buildConstellations(parent, radius, toVec, labelH, group, ptScale, stri
     parent.add(new THREE.Points(g,new THREE.PointsMaterial({
       color:0xdbe4ff,size:sizes[i],sizeAttenuation:false,transparent:true,opacity:i<2?1:0.85})));
   });
-  const lg=new THREE.BufferGeometry().setFromPoints(linePts);
-  parent.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({
-    color:0x6a7db3,transparent:true,opacity:0.5})));
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1362,8 +1370,8 @@ document.getElementById('yNext').addEventListener('click',()=>{tableYear++;rende
    ══════════════════════════════════════════════════════════ */
 const UI_STR={
   uiTime:['時刻','Time'], uiSpeed:['速度','Speed'], uiLat:['緯度','Lat'], uiLon:['經度','Lon'],
-  nowBtn:['切到現在','Jump to now'],
-  resetViewBtn:['回初始位置','Initial view'],
+  nowBtn:['切現在','Jump now'],
+  resetViewBtn:['回初始位','Initial view'],
   retroTableBtn:['逆行時刻表','Retrograde Table'],
   chipL:['日心視角 · SOLAR SYSTEM','HELIOCENTRIC · SOLAR SYSTEM'],
   chipR:['地平視角 · SKY VIEW','HORIZON · SKY VIEW'],
@@ -2131,7 +2139,7 @@ function navFaceR(key){
   return {yaw:Math.atan2(wp.x,-wp.z),pitch:Math.asin(Math.max(-1,Math.min(1,wp.y))),fov:34};
 }
 let nav=null;
-function cancelNav(){ nav=null; }
+function cancelNav(){ nav=null; clearConstHighlight(); }
 function startNav(keys){
   keys=(keys||[]).filter(Boolean);
   if(!keys.length)return 0;
@@ -2144,11 +2152,14 @@ function startNav(keys){
 }
 function navStep(){
   nav.i++;
-  if(nav.i>=nav.keys.length){ nav=null; return; }
+  if(nav.i>=nav.keys.length){ nav=null; clearConstHighlight(); return; }
   nav.key=nav.keys[nav.i];
-  if(typeof nav.key==='string'&&nav.key.startsWith('c:')){   /* 星座站:確保左天球與兩側星座圖形可見 */
-    ['sphereChk','constChk'].forEach(id=>{const el=document.getElementById(id); if(el&&!el.checked){el.checked=true; el.dispatchEvent(new Event('change'));}});
-  }
+  if(typeof nav.key==='string'&&nav.key.startsWith('c:')){   /* 星座站:確保左天球與兩側星座圖形可見,並點亮連線 */
+    const nm=nav.key.slice(2);
+    const ids=['sphereChk','constChk']; if(EXTRA_CONST[nm])ids.push('extraConstChk');
+    ids.forEach(id=>{const el=document.getElementById(id); if(el&&!el.checked){el.checked=true; el.dispatchEvent(new Event('change'));}});
+    highlightConst(nm);
+  } else { clearConstHighlight(); }
   nav.L0={target:ctrlL.target.clone(),r:ctrlL.r,theta:ctrlL.theta,phi:ctrlL.phi};
   nav.R0={yaw:ctrlR.yaw,pitch:ctrlR.pitch,fov:ctrlR.cam.fov};
   nav.phase='move'; nav.t=0;
