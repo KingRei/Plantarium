@@ -39,9 +39,9 @@
     position:absolute;right:100%;top:50%;transform:translateY(-50%);z-index:80;
     margin-right:10px;white-space:nowrap;pointer-events:none;
     font-size:11.5px;font-style:italic;color:#5AB0FF;
-    background:rgba(10,24,52,.62);border:1px solid rgba(90,176,255,.55);
-    border-radius:999px;padding:3px 10px;opacity:.95;
-    box-shadow:0 0 10px rgba(90,176,255,.25);
+    background:rgba(10,24,52,.4);border:1px solid rgba(90,176,255,.45);
+    border-radius:999px;padding:3px 10px;opacity:.72;
+    box-shadow:0 0 10px rgba(90,176,255,.2);
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
     animation:hintbob 2.6s ease-in-out infinite;
   }
@@ -220,10 +220,6 @@
     /* 手機:通知避開較矮的底列 + 安全區,字級縮小 */
     #toasts{bottom:calc(env(safe-area-inset-bottom,0px) + 46px);right:8px;max-width:82vw;}
     .toast{font-size:11.5px;padding:7px 12px;}
-    #micHint{           /* 手機:提示改放按鈕下方,避免橫向被切掉;保留浮動特效 */
-      right:0;left:auto;top:100%;transform:none;margin:6px 0 0;
-      white-space:normal;max-width:66vw;text-align:right;font-size:10.5px;
-      animation:hintbobv 2.4s ease-in-out infinite;
-    }
+    #micHint{ font-size:10px; }   /* 手機:提示放按鈕左邊(沿用桌機水平配置),只縮小字級 */
   }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }

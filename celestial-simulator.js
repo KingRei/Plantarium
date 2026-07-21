@@ -1380,7 +1380,7 @@ const UI_STR={
   uiSign:['十二宮區塊(隨歲差)','Zodiac sign sectors (precessing)'],
   uiExtraConst:['其他星座','More constellations'],
   uiViewBody:['觀察地','Observer'],
-  micHint:['試試:幫我從最內圍開始導覽九顆行星','Try: "Tour all nine planets from the innermost"'],
+  micHint:['試試: 開始導覽九顆行星','Try: "Tour the nine planets"'],
   micBtn:['AI語音命令','AI Voice'],
   uiOrbit:['軌道線','Orbit lines'],
   uiTrail:['逆行軌跡','Retrograde trail'], uiShow:['顯示','Show'],

@@ -1,8 +1,10 @@
-# 觀星者 · StarGZR
+# 觀星者 · StarGZR 
 
 An interactive, dual-view celestial simulator that runs entirely in the browser — no build step, no backend, no external assets beyond the three.js CDN.
 
-![](favicon.svg)
+[Start to gaze stars](http://gazer.star-gzr.com/)
+
+![](Screenshot.jpg)
 
 ## Views
 
