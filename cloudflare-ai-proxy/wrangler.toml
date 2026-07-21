@@ -3,11 +3,13 @@ main = "src/worker.js"
 compatibility_date = "2026-01-01"
 
 [vars]
-# 你的 Cloudflare 帳號 ID 與 AI Gateway 名稱（非機密，可留在這裡）
-CF_ACCOUNT_ID = "your-account-id"
+# ⚠ CF_ACCOUNT_ID 是 32 碼的 Account ID（不是登入信箱 hiroki1139@gmail.com）。
+#   到 dash.cloudflare.com → 右側欄 / Workers & Pages 概覽 / 網址列 dash.cloudflare.com/<這串>
+#   複製那串 32 碼十六進位貼進來：
+CF_ACCOUNT_ID = "REPLACE_WITH_32CHAR_ACCOUNT_ID"
 CF_GATEWAY_ID = "stargzr"
 # 只允許你的網站呼叫（逗號分隔；設 * 表示不限，不建議）
-ALLOWED_ORIGINS = "https://your-site.netlify.app,http://localhost:8888"
+ALLOWED_ORIGINS = "https://gazer.star-gzr.com,http://localhost:8888"
 
 # 機密以 wrangler secret 設定，不要寫在這個檔案：
 #   npx wrangler secret put CF_AIG_TOKEN

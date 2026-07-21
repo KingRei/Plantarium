@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+# Cloudflare Wrangler 本地狀態(不要進版控)
+.wrangler/
+cloudflare-ai-proxy/.wrangler/
