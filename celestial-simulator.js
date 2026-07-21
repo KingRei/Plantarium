@@ -385,7 +385,7 @@ class OrbitDrag{
        縮放不再以太陽為中心);步幅與當前距離成正比,任何尺度皆順手 */
     const fwd=new THREE.Vector3().subVectors(this.target,this.cam.position).normalize();
     const rv=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
-    const step=this.r*0.5*dt*(boost||1); /* 步幅收斂:精細易控,長按仍可加速 */
+    const step=this.r*0.22*dt*(boost||1); /* 步幅收斂:精細易控,長按仍可加速(前進放慢) */
     this.target.addScaledVector(fwd,f*step).addScaledVector(rv,rgt*step);
     this.apply();
   }
@@ -1641,7 +1641,7 @@ function animate(now){
   if(trueScale&&(moveKeys.w||moveKeys.s||moveKeys.a||moveKeys.d)){
     cancelNav();
     flyHeld+=dt;
-    const boost=1+Math.min(6,flyHeld*2.2); /* 長按持續加速,最多 7 倍 */
+    const boost=1+Math.min(5,flyHeld*1.4); /* 長按才漸加速,起步更緩,最多 6 倍 */
     ctrlL.move((moveKeys.w?1:0)-(moveKeys.s?1:0),(moveKeys.d?1:0)-(moveKeys.a?1:0),dt,boost);
     if(observeIdx!=='none'){observeIdx='none';obsSel.value='none';} /* 手動飛行即脫離跟隨 */
   }else flyHeld=0;

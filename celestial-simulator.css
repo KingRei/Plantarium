@@ -18,6 +18,7 @@
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     padding:10px 16px; border-bottom:1px solid var(--line);
     background:linear-gradient(180deg,#131B3A 0%,#0E1430 100%);
+    position:relative; z-index:40;   /* 讓浮動提示能蓋在畫布之上(手機下方溢出時仍可見) */
   }
   header .brand{display:flex;align-items:baseline;gap:8px;margin-right:4px;}
   header .brand b{color:var(--brass);letter-spacing:.35em;font-size:15px;font-weight:700;}
@@ -35,11 +36,12 @@
   header #micWrap{margin-left:auto;position:relative;display:flex;align-items:center;}
   /* AI 語音鍵左側的浮動提示例句(未錄音時顯示) */
   #micHint{
-    position:absolute;right:100%;top:50%;transform:translateY(-50%);
+    position:absolute;right:100%;top:50%;transform:translateY(-50%);z-index:80;
     margin-right:10px;white-space:nowrap;pointer-events:none;
-    font-size:11.5px;font-style:italic;color:#B8E6F0;
-    background:rgba(13,18,38,.55);border:1px solid rgba(120,200,220,.35);
-    border-radius:999px;padding:3px 10px;opacity:.9;
+    font-size:11.5px;font-style:italic;color:#5AB0FF;
+    background:rgba(10,24,52,.62);border:1px solid rgba(90,176,255,.55);
+    border-radius:999px;padding:3px 10px;opacity:.95;
+    box-shadow:0 0 10px rgba(90,176,255,.25);
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
     animation:hintbob 2.6s ease-in-out infinite;
   }
@@ -47,6 +49,7 @@
   #micWrap.recording #micHint,
   #micWrap.hintseen #micHint{display:none;}  /* 首次使用語音後,提示永久隱藏 */
   @keyframes hintbob{0%,100%{transform:translateY(-50%) translateX(0);}50%{transform:translateY(-50%) translateX(-4px);}}
+  @keyframes hintbobv{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
   input[type="datetime-local"],select,input[type="number"]{
     background:#0B1126;color:var(--paper);border:1px solid var(--line);
     border-radius:6px;padding:5px 8px;font-size:12.5px;
@@ -217,9 +220,10 @@
     /* 手機:通知避開較矮的底列 + 安全區,字級縮小 */
     #toasts{bottom:calc(env(safe-area-inset-bottom,0px) + 46px);right:8px;max-width:82vw;}
     .toast{font-size:11.5px;padding:7px 12px;}
-    #micHint{           /* 手機:提示改放按鈕下方,避免橫向被切掉 */
+    #micHint{           /* 手機:提示改放按鈕下方,避免橫向被切掉;保留浮動特效 */
       right:0;left:auto;top:100%;transform:none;margin:6px 0 0;
-      white-space:normal;max-width:62vw;text-align:right;font-size:10.5px;animation:none;
+      white-space:normal;max-width:66vw;text-align:right;font-size:10.5px;
+      animation:hintbobv 2.4s ease-in-out infinite;
     }
   }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }

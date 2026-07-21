@@ -1,17 +1,19 @@
 name = "stargzr-ai"
 main = "src/worker.js"
 compatibility_date = "2026-01-01"
+account_id = "5877a87bfbfca92ab863b26013c7e5ce"
 
 [vars]
-# ⚠ CF_ACCOUNT_ID 是 32 碼的 Account ID（不是登入信箱 hiroki1139@gmail.com）。
-#   到 dash.cloudflare.com → 右側欄 / Workers & Pages 概覽 / 網址列 dash.cloudflare.com/<這串>
-#   複製那串 32 碼十六進位貼進來：
-CF_ACCOUNT_ID = "REPLACE_WITH_32CHAR_ACCOUNT_ID"
+# Cloudflare Account ID（非機密）
+CF_ACCOUNT_ID = "5877a87bfbfca92ab863b26013c7e5ce"
 CF_GATEWAY_ID = "stargzr"
 # 只允許你的網站呼叫（逗號分隔；設 * 表示不限，不建議）
 ALLOWED_ORIGINS = "https://gazer.star-gzr.com,http://localhost:8888"
 
-# 機密以 wrangler secret 設定，不要寫在這個檔案：
-#   npx wrangler secret put CF_AIG_TOKEN
-#   npx wrangler secret put GROQ_API_KEY      （若用 BYOK 可略）
-#   npx wrangler secret put GH_MODELS_TOKEN   （若用 BYOK 可略）
+# 機密(Secret)不要寫在這個檔案。部署成「有程式碼的 Worker」後,
+# 到儀表板 → 該 Worker → Settings → Variables and Secrets → Add,型別選 Secret:
+#   CF_AIG_TOKEN     （Authenticated Gateway 用）
+#   GROQ_API_KEY     （若非 BYOK 才需要）
+#   GH_MODELS_TOKEN  （若非 BYOK 才需要）
+# 或用 CLI:  npx wrangler secret put CF_AIG_TOKEN   （其餘同理）
+# worker.js 已經會讀 env.CF_AIG_TOKEN / env.GROQ_API_KEY / env.GH_MODELS_TOKEN。
